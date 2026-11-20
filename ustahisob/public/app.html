@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UstaHisob — Moliya boshqaruvi</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="/trades.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -597,31 +598,12 @@ tr.mb-item-detail-row .inner{ padding:10px 16px; }
             <p class="mb-hint" style="margin-top:0;">Har bir ish/bo'lim uchun narx, sana, holat va mas'ul usta(lar)ni alohida belgilab, ro'yxatga qo'shing.</p>
             <div class="mb-form">
               <div class="mb-field">
-                <label>Ish / bo'lim nomi</label>
-                <select id="i-name-preset">
-                  <option value="Oshxona">Oshxona (mebel)</option>
-                  <option value="Yotoqxona">Yotoqxona (mebel)</option>
-                  <option value="Sanuzel">Sanuzel</option>
-                  <option value="Prixojka">Prixojka (mebel)</option>
-                  <option value="Bolalar xonasi">Bolalar xonasi (mebel)</option>
-                  <option value="Elektr montaji">Elektr montaji</option>
-                  <option value="Santexnika ishlari">Santexnika ishlari</option>
-                  <option value="Suvoq ishlari">Suvoq ishlari</option>
-                  <option value="Bo'yoq ishlari">Bo'yoq ishlari</option>
-                  <option value="Kafel yotqizish">Kafel yotqizish</option>
-                  <option value="Parket yotqizish">Parket yotqizish</option>
-                  <option value="Gipsokarton ishlari">Gipsokarton ishlari</option>
-                  <option value="Tom yopish">Tom yopish</option>
-                  <option value="Deraza o'rnatish">Deraza o'rnatish</option>
-                  <option value="Eshik o'rnatish">Eshik o'rnatish</option>
-                  <option value="Payvandlash ishlari">Payvandlash ishlari</option>
-                  <option value="Fasad ishlari">Fasad ishlari</option>
-                  <option value="__custom">Boshqa (o'zi kiriting)</option>
-                </select>
+                <label id="i-name-label">Ish / bo'lim nomi</label>
+                <select id="i-name-preset"></select>
               </div>
               <div class="mb-field" id="i-name-custom-field" style="display:none;">
                 <label>Ish / bo'lim nomi (qo'lda)</label>
-                <input id="i-name-custom" placeholder="Balkon">
+                <input id="i-name-custom" placeholder="Masalan: Balkon">
               </div>
               <div class="mb-field"><label>Narxi (so'm)</label><input id="i-price" type="number" placeholder="5000000"></div>
               <div class="mb-field"><label>Buyurtma sanasi</label><input id="i-date" type="date"></div>
@@ -960,6 +942,9 @@ tr.mb-item-detail-row .inner{ padding:10px 16px; }
       if (res.status === 401) { logout(); return; }
       const data = await res.json();
       window.CURRENT_COMPANY_NAME = data.companyName || '';
+      window.CURRENT_TRADE = data.trade || 'boshqa';
+      try{ localStorage.setItem('emb_trade', window.CURRENT_TRADE); }catch(e){}
+      if(window.populateItemNames) window.populateItemNames();
       localStorage.setItem('emb_company', window.CURRENT_COMPANY_NAME);
       document.getElementById('acc-company').textContent = data.companyName || '';
       const badge = document.getElementById('acc-sub-badge');
@@ -1621,8 +1606,10 @@ tr.mb-item-detail-row .inner{ padding:10px 16px; }
     const total = orderTotal(order);
     const paid = Number(order.paid)||0;
     const remaining = total - paid;
-    const avans70 = Math.round(total*0.7);
     const companyName = (window.CURRENT_COMPANY_NAME || 'Kompaniya nomi').toUpperCase();
+    const tr = getTrade(window.CURRENT_TRADE || localStorage.getItem('emb_trade') || 'boshqa');
+    const D = tr.doc;
+    const avansAmt = Math.round(total*D.avansPct/100);
     // pick representative responsible master(s) from the items, if any assigned
     const allAssignedWorkerNames = [...new Set(items.flatMap(i=>(i.workerIds||[]).map(id=>{
       const w = state.workers.find(x=>x.id===id); return w ? w.name : null;
@@ -1660,9 +1647,9 @@ tr.mb-item-detail-row .inner{ padding:10px 16px; }
   <div class="sheet">
     <div class="band">
       <div class="co">${companyName}</div>
-      <div class="tag">Professional ishlar va xizmatlar</div>
+      <div class="tag">${tr.tag}</div>
     </div>
-    <h1>BUYURTMA UCHUN TIJORIY TAKLIF VA SHARTNOMA</h1>
+    <h1>${D.title}</h1>
     <div class="meta">№ ${order.orderNumber||'—'} &nbsp;&nbsp;|&nbsp;&nbsp; ${dfmt(orderEarliestDate(order))}</div>
 
     <p class="intro">Ushbu shartnoma bir tomondan "${companyName}" nomidan ish yurituvchi (bundan buyon matnda — "Bajaruvchi") va ikkinchi tomondan quyida imzo chekuvchi mijoz (bundan buyon matnda — "Buyurtmachi") o'rtasida quyidagilar to'g'risida tuzildi:</p>
@@ -1674,12 +1661,12 @@ tr.mb-item-detail-row .inner{ padding:10px 16px; }
       <tr><td class="label">Telefon raqami</td><td>${order.phone||''}</td></tr>
       <tr><td class="label">Bog'lanuvchi shaxs</td><td></td></tr>
       <tr><td class="label">Javobgar usta(lar)</td><td>${allAssignedWorkerNames}</td></tr>
-      <tr><td class="label">3D dizayner</td><td></td></tr>
+      ${D.designerRow ? '<tr><td class="label">3D dizayner</td><td></td></tr>' : ''}
     </table>
 
-    <h2>2. BAJARILADIGAN ISHLAR / MAHSULOTLAR RO'YXATI VA NARXI</h2>
+    <h2>2. ${D.itemsHeading}</h2>
     <table>
-      <thead><tr><th>№</th><th>Ish / mahsulot nomi</th><th>Mas'ul usta(lar)</th><th>Sana</th><th>Topshirish</th><th class="num">Narx</th></tr></thead>
+      <thead><tr><th>№</th><th>${D.itemColumn}</th><th>Mas'ul usta(lar)</th><th>Sana</th><th>Topshirish</th><th class="num">Narx</th></tr></thead>
       <tbody>
       ${items.map((i,idx)=>{
         const wNames = itemWorkerNames(i);
@@ -1688,27 +1675,20 @@ tr.mb-item-detail-row .inner{ padding:10px 16px; }
       <tr><td colspan="5" class="label" style="text-align:right;">Jami summa:</td><td class="num"><b>${fmt(total)}</b></td></tr>
       </tbody>
     </table>
-    <div class="kqline">Avans (70%): <b>${fmt(avans70)}</b> &nbsp;&nbsp;|&nbsp;&nbsp; To'langan (shu kunga): <b>${fmt(paid)}</b> &nbsp;&nbsp;|&nbsp;&nbsp; Qoldiq: <b>${fmt(remaining)}</b></div>
+    <div class="kqline">Avans (${D.avansPct}%): <b>${fmt(avansAmt)}</b> &nbsp;&nbsp;|&nbsp;&nbsp; To'langan (shu kunga): <b>${fmt(paid)}</b> &nbsp;&nbsp;|&nbsp;&nbsp; Qoldiq: <b>${fmt(remaining)}</b></div>
 
     <h2>3. BAJARISH MUDDATLARI VA KAFOLAT</h2>
     <table>
-      <tr><td class="label">Ishlar boshlanish sanasi</td><td>3D model Buyurtmachi tomonidan tasdiqlangan kundan boshlanadi.</td></tr>
-      <tr><td class="label">Topshirish sanasi (tayyorlash muddati)</td><td>${deliveryDatesSummary(items)}</td></tr>
-      <tr><td class="label">Kafolat muddati</td><td>12 (o'n ikki) oy (mebel jihozni Buyurtmachi tomonidan o'zboshimchalik bilan ochib, ta'mirlashga harakat qilingan holatlar bundan mustasno)</td></tr>
+      <tr><td class="label">Ishlar boshlanish sanasi</td><td>${D.start}</td></tr>
+      <tr><td class="label">${D.deliveryLabel}</td><td>${deliveryDatesSummary(items)}</td></tr>
+      <tr><td class="label">Kafolat muddati</td><td>${D.warranty}</td></tr>
     </table>
 
     <h2>4. TO'LOV TARTIBI VA TOMONLARNING MAJBURIYATLARI</h2>
-    <p class="term">4.1. Mebel jihozning 3D dizayni tayyor bo'lib, Buyurtmachi tomonidan tasdiqlangandan so'ng 3 (uch) kun ichida umumiy summadan 70% (avans) to'lanishi shart.</p>
-    <p class="term">4.2. Avans 70 foiz to'langandan so'ng buyurtma ishlab chiqarishga topshiriladi. Buyurtma tayyor bo'lgach, Bajaruvchi Buyurtmachini chaqirib, mebellarni ko'rsatadi. Buyurtmachi to'lovning qolgan qismini to'laydi, so'ngra mebellar manzilga olib borilib o'rnatiladi.</p>
-    <p class="term">4.3. Mahsulot topshirilgandan so'ng ikkala tomon dalolatnomaga (yoki ushbu shartnomaning tegishli bo'limiga) imzo qo'yadi.</p>
-    <p class="term">4.4. Ish jarayonida material yoki bozor narxlarida o'zgarish yuz bersa, mahsulot narxi tegishlicha o'zgarishi mumkin — bu haqda Buyurtmachiga oldindan xabar beriladi.</p>
-    <p class="term">4.5. Mebel o'rnatilishi jarayonida obyekt remonti sifati yoki devor/burchak nomutanosibligi ta'sir qilib, buni tuzatish uchun Bajaruvchi tomonidan qo'shimcha xizmat ko'rsatilsa, bu xizmat uchun Buyurtmachi tomonidan alohida to'lov amalga oshiriladi.</p>
-    <p class="term">4.6. Mebel tayyor bo'lgach, Buyurtmachi mahsulotni 3 (uch) kun ichida olib ketmasa, keyingi kundan boshlab har kuni 30 000 (o'ttiz ming) so'm miqdorida saqlov (ijara) haqi hisoblanadi.</p>
+    ${tradeClausesHTML(D.payment,'4',D.avansPct)}
 
     <h2>5. SHARTNOMANI BEKOR QILISH VA JARIMA SHARTLARI</h2>
-    <p class="term">5.1. Buyurtma qabul qilingandan so'ng Buyurtmachi buyurtmani bekor qilsa — buyurtma summasidan 20% jarima ushlab qolinadi.</p>
-    <p class="term">5.2. Agar mebel jihozning 3D dizayni yoki konstruksiyasi loyihalashtirilgan bo'lsa — buyurtma summasidan 25% jarima ushlab qolinadi.</p>
-    <p class="term">5.3. Agar buyurtmani tayyorlash uchun xom ashyo allaqachon kesilgan bo'lsa — kelishilgan buyurtma narxining 100% i Buyurtmachi tomonidan to'liq qoplanadi.</p>
+    ${tradeClausesHTML(D.cancel,'5',D.avansPct)}
 
     <h2>6. YAKUNIY QOIDALAR</h2>
     <p class="term">6.1. Buyurtmachi ushbu shartnoma va texnik topshiriqnomada ko'rsatilgan barcha ma'lumotlar bilan tanishib chiqqanini va ularga roziligini tasdiqlaydi.</p>
@@ -1732,7 +1712,7 @@ tr.mb-item-detail-row .inner{ padding:10px 16px; }
     </div>
 
     <div class="confirm">
-      * Mahsulot topshirilgandan so'ng — «Mahsulotni tekshirib oldim, ma'qul va meni to'liq qoniqtiradi» degan yozuv ostiga Buyurtmachi qayta imzo qo'yadi:
+      * Ishlar/mahsulot topshirilgandan so'ng — «Tekshirib oldim, ma'qul va meni to'liq qoniqtiradi» degan yozuv ostiga Buyurtmachi qayta imzo qo'yadi:
       <div class="sign-row">Buyurtmachi: <span class="line">&nbsp;</span> &nbsp;&nbsp;&nbsp; Sana: <span class="line">&nbsp;</span></div>
     </div>
   </div>
@@ -2036,6 +2016,18 @@ tr.mb-item-detail-row .inner{ padding:10px 16px; }
     });
   }
 
+  function populateItemNames(){
+    const tr = getTrade(window.CURRENT_TRADE || localStorage.getItem('emb_trade') || 'boshqa');
+    const prev = iNamePreset.value;
+    iNamePreset.innerHTML = tr.items.map(n=>`<option value="${n}">${n}</option>`).join('') + `<option value="__custom">Boshqa (o'zi kiriting)</option>`;
+    if(tr.items.includes(prev)) iNamePreset.value = prev;
+    const lbl = $('#i-name-label'); if(lbl) lbl.textContent = tr.itemsLabel;
+    const cu = $('#i-name-custom'); if(cu) cu.placeholder = tr.customPlaceholder;
+    iNameCustomField.style.display = iNamePreset.value==='__custom' ? '' : 'none';
+  }
+  window.populateItemNames = populateItemNames;
+  populateItemNames();
+
   function currentItemName(){
     if(iNamePreset.value==='__custom') return $('#i-name-custom').value.trim();
     return iNamePreset.value;
@@ -2085,7 +2077,7 @@ tr.mb-item-detail-row .inner{ padding:10px 16px; }
     renderDraftItems();
     $('#o-total').value = draftItems.reduce((s,i)=>s+(Number(i.price)||0),0) || '';
     // reset only name/price/worker — keep date/delivery/status for convenience when adding several items
-    $('#i-name-preset').value = 'Oshxona';
+    $('#i-name-preset').selectedIndex = 0;
     iNameCustomField.style.display = 'none';
     $('#i-name-custom').value = '';
     $('#i-price').value = '';
@@ -2154,125 +2146,246 @@ tr.mb-item-detail-row .inner{ padding:10px 16px; }
     renderAll();
   });
 
-  // ---------- export ----------
-  function applyCurrencyFormat(ws, colIndexes, rowCount){
-    for(let r=1; r<=rowCount; r++){
-      colIndexes.forEach(c=>{
-        const addr = XLSX.utils.encode_cell({r, c});
-        if(ws[addr] && typeof ws[addr].v === 'number'){
-          ws[addr].z = '#,##0" so\'m"';
-        }
+  // ---------- export (ExcelJS — chiroyli dizayn) ----------
+  const XL = {
+    wood:'FF5B3F26', woodLight:'FFF4EBDD', sand:'FFFBF7F0', line:'FFD9C7AA',
+    ink:'FF2B2118', white:'FFFFFFFF', green:'FF2E7D4F', greenBg:'FFE3F3E9',
+    amber:'FF9A6A00', amberBg:'FFFFF2CC', red:'FFB3372B', redBg:'FFFBE3E0', blue:'FF1F5F99', blueBg:'FFE1EEF9'
+  };
+  const XL_CUR = '#,##0" so\'m"';
+  const XL_DATE = 'dd.mm.yyyy';
+  function xlDate(s){ if(!s) return ''; const d = new Date(s+'T00:00:00'); return isNaN(d) ? s : d; }
+
+  // Sheet yaratadi: sarlavha bandi + ustun sarlavhalari + qatorlar. cols: [{h, w, key, type}] type: cur|date|int|text|status
+  function xlAddTable(wb, name, title, cols, rows, opts){
+    opts = opts || {};
+    const ws = wb.addWorksheet(name, { views:[{ state:'frozen', ySplit:4, showGridLines:false }], properties:{ tabColor:{ argb: opts.tab || XL.wood } } });
+    const n = cols.length;
+    ws.columns = cols.map(c=>({ width:c.w }));
+    // 1-qator: sarlavha
+    ws.mergeCells(1,1,1,n);
+    const t = ws.getCell(1,1);
+    t.value = (window.CURRENT_COMPANY_NAME || 'UstaHisob').toUpperCase() + '  —  ' + title;
+    t.font = { name:'Calibri', size:16, bold:true, color:{argb:XL.white} };
+    t.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.wood} };
+    t.alignment = { vertical:'middle', horizontal:'left', indent:1 };
+    ws.getRow(1).height = 34;
+    // 2-qator: sana
+    ws.mergeCells(2,1,2,n);
+    const sub = ws.getCell(2,1);
+    sub.value = 'Hisobot sanasi: ' + dfmt(today()) + '   |   UstaHisob';
+    sub.font = { name:'Calibri', size:10, italic:true, color:{argb:'FF7A6650'} };
+    sub.alignment = { indent:1 };
+    ws.getRow(3).height = 6;
+    // 4-qator: ustun sarlavhalari
+    const hr = ws.getRow(4);
+    cols.forEach((c,i)=>{
+      const cell = hr.getCell(i+1);
+      cell.value = c.h;
+      cell.font = { name:'Calibri', size:11, bold:true, color:{argb:XL.ink} };
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFE6D2B0'} };
+      cell.alignment = { vertical:'middle', horizontal: (c.type==='cur'||c.type==='int') ? 'right' : 'left', wrapText:true, indent:1 };
+      cell.border = { bottom:{ style:'medium', color:{argb:XL.wood} } };
+    });
+    hr.height = 32;
+    // ma'lumot qatorlari
+    rows.forEach((r, ri)=>{
+      const row = ws.getRow(5+ri);
+      cols.forEach((c,i)=>{
+        const cell = row.getCell(i+1);
+        let v = r[c.key];
+        if(c.type==='date') v = xlDate(v);
+        cell.value = (v===undefined || v===null) ? '' : v;
+        cell.font = { name:'Calibri', size:11, color:{argb:XL.ink} };
+        cell.border = { bottom:{ style:'thin', color:{argb:XL.line} } };
+        cell.alignment = { vertical:'middle', wrapText: c.type==='text', horizontal: c.type==='cur'||c.type==='int' ? 'right' : (c.type==='date'||c.type==='status' ? 'center' : 'left'), indent:1 };
+        if(ri%2===1) cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.sand} };
+        if(c.type==='cur') cell.numFmt = XL_CUR;
+        if(c.type==='date') cell.numFmt = XL_DATE;
+        if(c.type==='status') xlStatusStyle(cell, v);
       });
+      row.height = 20;
+    });
+    // jami qatori (formulalar bilan)
+    const lastData = 4 + rows.length;
+    const sumCols = cols.map((c,i)=>c.sum ? i+1 : 0).filter(Boolean);
+    if(rows.length && sumCols.length){
+      const tr = ws.getRow(lastData+1);
+      const labelCol = Math.max(1, Math.min(...sumCols)-1);
+      tr.getCell(labelCol).value = 'JAMI:';
+      sumCols.forEach(ci=>{
+        const L = ws.getColumn(ci).letter;
+        tr.getCell(ci).value = { formula:`SUBTOTAL(109,${L}5:${L}${lastData})` };
+        tr.getCell(ci).numFmt = XL_CUR;
+        tr.getCell(ci).alignment = { horizontal:'right' };
+      });
+      for(let i=1;i<=n;i++){
+        const c = tr.getCell(i);
+        c.font = { name:'Calibri', size:12, bold:true, color:{argb:XL.white} };
+        c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.wood} };
+      }
+      tr.height = 26;
+    }
+    if(rows.length){ ws.autoFilter = { from:{row:4,column:1}, to:{row:4,column:n} }; }
+    else {
+      ws.mergeCells(5,1,5,n);
+      const e = ws.getCell(5,1); e.value = "Ma'lumot yo'q"; e.font = { italic:true, color:{argb:'FF9A8B77'} }; e.alignment = { horizontal:'center' };
+    }
+    ws.pageSetup = { orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0, paperSize:9 };
+    return ws;
+  }
+
+  function xlStatusStyle(cell, label){
+    const map = {
+      'Jarayonda':[XL.amber, XL.amberBg], 'Tayyor (kutilmoqda)':[XL.blue, XL.blueBg], 'Tayyor':[XL.blue, XL.blueBg],
+      'Topshirilgan':[XL.green, XL.greenBg], 'Bekor qilingan':[XL.red, XL.redBg], 'Bekor':[XL.red, XL.redBg], 'Aralash':[XL.amber, XL.amberBg]
+    };
+    const m = map[label];
+    if(m){
+      cell.font = { name:'Calibri', size:11, bold:true, color:{argb:m[0]} };
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:m[1]} };
     }
   }
 
-  $('#export-btn').addEventListener('click', ()=>{
+  function xlSummarySheet(wb, t){
+    const ws = wb.addWorksheet('Hisobot', { views:[{ showGridLines:false }], properties:{ tabColor:{argb:XL.wood} } });
+    ws.columns = [{width:3},{width:44},{width:24},{width:3}];
+    ws.mergeCells('B1:C1');
+    const h = ws.getCell('B1');
+    h.value = (window.CURRENT_COMPANY_NAME || 'UstaHisob').toUpperCase();
+    h.font = { name:'Calibri', size:22, bold:true, color:{argb:XL.white} };
+    h.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.wood} };
+    h.alignment = { vertical:'middle', indent:1 };
+    ws.getRow(1).height = 44;
+    ws.mergeCells('B2:C2');
+    const s = ws.getCell('B2');
+    s.value = 'UMUMIY MOLIYAVIY HISOBOT   |   ' + dfmt(today());
+    s.font = { size:11, bold:true, color:{argb:XL.ink} };
+    s.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFE6D2B0'} };
+    s.alignment = { vertical:'middle', indent:1 };
+    ws.getRow(2).height = 26;
+    const lines = [
+      ['Jami buyurtmalar soni', state.orders.length, 'int', null],
+      ['Faol buyurtmalar (jarayonda / tayyor)', t.activeOrders, 'int', null],
+      ['sep'],
+      ['Jami tushum (barcha vaqt)', t.income, 'cur', 'green'],
+      ["Kutilayotgan (qoldiq) to'lovlar", t.pending, 'cur', 'amber'],
+      ['sep'],
+      ['Boshqa xarajatlar', t.expenseOther, 'cur', null],
+      ["Xodimlarga to'langan (avans + oylik + foiz)", t.workerPaid, 'cur', null],
+      ['Jami xarajat', t.expense, 'cur', 'red'],
+    ];
+    let r = 4;
+    lines.forEach(L=>{
+      if(L[0]==='sep'){ ws.getRow(r).height = 8; r++; return; }
+      const a = ws.getCell(r,2), b = ws.getCell(r,3);
+      a.value = L[0]; b.value = L[1];
+      a.font = { size:12, color:{argb:XL.ink} };
+      b.font = { size:12, bold:true, color:{argb: L[3]==='green'?XL.green : L[3]==='red'?XL.red : L[3]==='amber'?XL.amber : XL.ink} };
+      if(L[2]==='cur') b.numFmt = XL_CUR;
+      b.alignment = { horizontal:'right' };
+      [a,b].forEach(c=>{ c.border = { bottom:{ style:'thin', color:{argb:XL.line} } }; });
+      ws.getRow(r).height = 24;
+      r++;
+    });
+    r++;
+    ws.getRow(r).height = 36;
+    const a = ws.getCell(r,2), b = ws.getCell(r,3);
+    a.value = 'SOF FOYDA'; b.value = t.profit; b.numFmt = XL_CUR;
+    const good = t.profit >= 0;
+    [a,b].forEach(c=>{
+      c.font = { size:16, bold:true, color:{argb:XL.white} };
+      c.fill = { type:'pattern', pattern:'solid', fgColor:{argb: good ? XL.green : XL.red} };
+      c.alignment = { vertical:'middle', indent:1, horizontal: c===b ? 'right' : 'left' };
+    });
+    ws.pageSetup = { orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:1, paperSize:9 };
+  }
+
+  $('#export-btn').addEventListener('click', async ()=>{
+    const btn = $('#export-btn');
     try{
-      const wb = XLSX.utils.book_new();
+      if(!window.ExcelJS){ openAlertModal("Excel kutubxonasi yuklanmadi. Internet aloqasini tekshirib, sahifani yangilang."); return; }
+      btn.disabled = true; btn.textContent = 'Tayyorlanmoqda...';
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'UstaHisob'; wb.created = new Date();
       const t = totalsAllTime();
+      xlSummarySheet(wb, t);
 
-      // ---- 1. Hisobot (summary) — first sheet, shown when file opens ----
-      const summarySheet = [
-        { "Ko'rsatkich": "Hisobot sanasi", 'Qiymat': dfmt(today()) },
-        { "Ko'rsatkich": '', 'Qiymat': '' },
-        { "Ko'rsatkich": 'Jami buyurtmalar soni', 'Qiymat': state.orders.length },
-        { "Ko'rsatkich": 'Faol buyurtmalar (jarayonda/tayyor)', 'Qiymat': t.activeOrders },
-        { "Ko'rsatkich": 'Jami tushum (barcha vaqt)', 'Qiymat': t.income },
-        { "Ko'rsatkich": "Kutilayotgan (qoldiq) to'lovlar", 'Qiymat': t.pending },
-        { "Ko'rsatkich": 'Boshqa xarajatlar', 'Qiymat': t.expenseOther },
-        { "Ko'rsatkich": "Xodimlarga to'langan (avans+oylik+foiz)", 'Qiymat': t.workerPaid },
-        { "Ko'rsatkich": 'Jami xarajat', 'Qiymat': t.expense },
-        { "Ko'rsatkich": 'SOF FOYDA', 'Qiymat': t.profit },
-      ];
-      const wsS = XLSX.utils.json_to_sheet(summarySheet, {skipHeader:false});
-      wsS['!cols'] = [{wch:38},{wch:20}];
-      applyCurrencyFormat(wsS, [1], summarySheet.length);
-      XLSX.utils.book_append_sheet(wb, wsS, 'Hisobot');
-
-      // ---- 2. Buyurtmalar ----
       const ordersSorted = [...state.orders].sort((a,b)=>(a.orderNumber||0)-(b.orderNumber||0));
-      const ordersSheet = ordersSorted.map(o=>{
-        const total = orderTotal(o);
-        return {
-          '№': o.orderNumber||'', 'Sana': orderEarliestDate(o),
-          'Mijoz': o.client, 'Telefon': o.phone||'', 'Manzil': o.address||'',
-          'Xonalar soni': orderItems(o).length, 'Xonalar ro\'yxati': orderItemNames(o),
-          'Umumiy narx': total, "To'langan": o.paid, 'Qoldiq': total-(Number(o.paid)||0),
-          'Holat': statusLabel(orderStatusSummary(o))
-        };
-      });
-      const wsO = XLSX.utils.json_to_sheet(ordersSheet);
-      wsO['!cols'] = [{wch:5},{wch:11},{wch:20},{wch:15},{wch:22},{wch:11},{wch:30},{wch:14},{wch:14},{wch:14},{wch:14}];
-      applyCurrencyFormat(wsO, [7,8,9], ordersSheet.length);
-      XLSX.utils.book_append_sheet(wb, wsO, 'Buyurtmalar');
+      xlAddTable(wb, 'Buyurtmalar', 'BUYURTMALAR', [
+        {h:'№', w:6, key:'n', type:'int'}, {h:'Sana', w:12, key:'date', type:'date'},
+        {h:'Mijoz', w:24, key:'client', type:'text'}, {h:'Telefon', w:17, key:'phone', type:'text'},
+        {h:'Manzil', w:28, key:'address', type:'text'}, {h:'Bo\'limlar soni', w:11, key:'cnt', type:'int'},
+        {h:'Bo\'limlar ro\'yxati', w:34, key:'names', type:'text'},
+        {h:'Umumiy narx', w:17, key:'total', type:'cur', sum:true}, {h:"To'langan", w:17, key:'paid', type:'cur', sum:true},
+        {h:'Qoldiq', w:17, key:'rest', type:'cur', sum:true}, {h:'Holat', w:20, key:'status', type:'status'}
+      ], ordersSorted.map(o=>{
+        const total = orderTotal(o); const paid = Number(o.paid)||0;
+        return { n:o.orderNumber||'', date:orderEarliestDate(o), client:o.client, phone:o.phone||'', address:o.address||'',
+          cnt:orderItems(o).length, names:orderItemNames(o), total, paid, rest:total-paid, status:statusLabel(orderStatusSummary(o)) };
+      }), {tab:'FFC9A47C'});
 
-      // ---- 2b. Buyurtma tarkibi (xonalar) ----
-      const itemsSheet = [];
-      ordersSorted.forEach(o=>{
-        orderItems(o).forEach(i=>{
-          const wNames = itemWorkerNames(i);
-          itemsSheet.push({
-            'Buyurtma №': o.orderNumber||'', 'Mijoz': o.client, "Bo'lim": i.name,
-            'Narx': i.price, 'Sana': i.date, 'Topshirish sanasi': i.deliveryDate||'',
-            "Mas'ul usta(lar)": wNames, 'Holat': statusLabel(i.status)
-          });
-        });
-      });
-      const wsI = XLSX.utils.json_to_sheet(itemsSheet);
-      wsI['!cols'] = [{wch:11},{wch:20},{wch:16},{wch:13},{wch:11},{wch:13},{wch:16},{wch:14}];
-      applyCurrencyFormat(wsI, [3], itemsSheet.length);
-      XLSX.utils.book_append_sheet(wb, wsI, 'Buyurtma tarkibi');
+      const itemRows = [];
+      ordersSorted.forEach(o=> orderItems(o).forEach(i=> itemRows.push({
+        n:o.orderNumber||'', client:o.client, name:i.name, price:i.price, date:i.date, delivery:i.deliveryDate||'',
+        workers:itemWorkerNames(i), status:statusLabel(i.status)
+      })));
+      xlAddTable(wb, 'Buyurtma tarkibi', 'BUYURTMA TARKIBI (ISHLAR / BO\'LIMLAR)', [
+        {h:'Buyurtma №', w:12, key:'n', type:'int'}, {h:'Mijoz', w:24, key:'client', type:'text'},
+        {h:"Bo'lim / ish", w:26, key:'name', type:'text'}, {h:'Narx', w:17, key:'price', type:'cur', sum:true},
+        {h:'Sana', w:12, key:'date', type:'date'}, {h:'Topshirish (reja)', w:16, key:'delivery', type:'date'},
+        {h:"Mas'ul usta(lar)", w:26, key:'workers', type:'text'}, {h:'Holat', w:20, key:'status', type:'status'}
+      ], itemRows, {tab:'FFC9A47C'});
 
-      // ---- 3. Buyurtma to'lovlari ----
-      const orderPaySheet = [...state.orderPayments].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(p=>{
+      xlAddTable(wb, "Buyurtma to'lovlari", "MIJOZLARDAN TUSHGAN TO'LOVLAR", [
+        {h:'Sana', w:12, key:'date', type:'date'}, {h:'Buyurtma №', w:12, key:'n', type:'int'},
+        {h:'Mijoz', w:26, key:'client', type:'text'}, {h:'Izoh', w:30, key:'note', type:'text'},
+        {h:'Summa', w:18, key:'amount', type:'cur', sum:true}
+      ], [...state.orderPayments].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(p=>{
         const o = state.orders.find(x=>x.id===p.orderId);
-        return { 'Sana': p.date, 'Buyurtma №': o?o.orderNumber:'', 'Mijoz': o?o.client:'—', 'Izoh': p.note||'', 'Summa': p.amount };
-      });
-      const wsOP = XLSX.utils.json_to_sheet(orderPaySheet);
-      wsOP['!cols'] = [{wch:12},{wch:11},{wch:20},{wch:22},{wch:14}];
-      applyCurrencyFormat(wsOP, [4], orderPaySheet.length);
-      XLSX.utils.book_append_sheet(wb, wsOP, "Buyurtma to'lovlari");
+        return { date:p.date, n:o?o.orderNumber:'', client:o?o.client:'—', note:p.note||'', amount:p.amount };
+      }), {tab:XL.green.replace('FF','FF')});
 
-      // ---- 4. Xarajatlar ----
-      const expSheet = [...state.expenses].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(e=>{
+      xlAddTable(wb, 'Xarajatlar', 'XARAJATLAR', [
+        {h:'Sana', w:12, key:'date', type:'date'}, {h:'Turkum', w:18, key:'cat', type:'text'},
+        {h:'Tavsif', w:34, key:'desc', type:'text'}, {h:'Buyurtma', w:28, key:'ord', type:'text'},
+        {h:'Summa', w:18, key:'amount', type:'cur', sum:true}
+      ], [...state.expenses].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(e=>{
         const ord = state.orders.find(o=>o.id===e.orderId);
-        return { 'Sana': e.date, 'Turkum': e.category, 'Tavsif': e.desc, 'Summa': e.amount, 'Buyurtma': ord? ('#'+ord.orderNumber+' — '+ord.client) : 'Umumiy' };
-      });
-      const wsE = XLSX.utils.json_to_sheet(expSheet);
-      wsE['!cols'] = [{wch:12},{wch:16},{wch:28},{wch:14},{wch:26}];
-      applyCurrencyFormat(wsE, [3], expSheet.length);
-      XLSX.utils.book_append_sheet(wb, wsE, 'Xarajatlar');
+        return { date:e.date, cat:e.category, desc:e.desc, ord: ord ? ('#'+ord.orderNumber+' — '+ord.client) : 'Umumiy', amount:e.amount };
+      }), {tab:'FFB3372B'});
 
-      // ---- 5. Xodimlar ----
-      const workersSheet = state.workers.map(w=>{
-        const isPercent = w.type==='foiz';
-        return {
-          'Ism': w.name, 'Lavozim': w.position, 'Turi': isPercent?'Foiz':'Oylik',
-          'Stavka': isPercent ? ((w.percent||0)+'%') : w.salary,
-          'Hisoblangan / Oylik': isPercent ? workerAccrued(w) : w.salary,
-          "To'langan": isPercent ? workerPaidTotal(w.id) : workerPaidThisMonth(w.id),
-          'Qoldiq': isPercent ? (workerAccrued(w)-workerPaidTotal(w.id)) : ((Number(w.salary)||0) - workerPaidThisMonth(w.id))
-        };
-      });
-      const wsW = XLSX.utils.json_to_sheet(workersSheet);
-      wsW['!cols'] = [{wch:20},{wch:18},{wch:9},{wch:12},{wch:16},{wch:14},{wch:14}];
-      applyCurrencyFormat(wsW, [4,5,6], workersSheet.length);
-      XLSX.utils.book_append_sheet(wb, wsW, 'Xodimlar');
+      xlAddTable(wb, 'Xodimlar', 'XODIMLAR', [
+        {h:'Ism', w:24, key:'name', type:'text'}, {h:'Lavozim', w:20, key:'pos', type:'text'}, {h:'Turi', w:10, key:'type', type:'text'},
+        {h:'Stavka', w:14, key:'rate', type:'text'}, {h:'Hisoblangan / oylik', w:20, key:'acc', type:'cur', sum:true},
+        {h:"To'langan", w:18, key:'paid', type:'cur', sum:true}, {h:'Qoldiq', w:18, key:'rest', type:'cur', sum:true}
+      ], state.workers.map(w=>{
+        const isP = w.type==='foiz';
+        const acc = isP ? workerAccrued(w) : (Number(w.salary)||0);
+        const paid = isP ? workerPaidTotal(w.id) : workerPaidThisMonth(w.id);
+        return { name:w.name, pos:w.position||'', type:isP?'Foiz':'Oylik', rate:isP ? ((w.percent||0)+'%') : fmt(w.salary), acc, paid, rest:acc-paid };
+      }), {tab:'FF1F5F99'});
 
-      // ---- 6. Xodim to'lovlari ----
-      const workerPaySheet = [...state.workerPayments].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(p=>{
+      xlAddTable(wb, "Xodim to'lovlari", "XODIMLARGA TO'LOVLAR", [
+        {h:'Sana', w:12, key:'date', type:'date'}, {h:'Xodim', w:24, key:'w', type:'text'}, {h:'Turi', w:14, key:'type', type:'text'},
+        {h:'Izoh', w:30, key:'note', type:'text'}, {h:'Summa', w:18, key:'amount', type:'cur', sum:true}
+      ], [...state.workerPayments].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(p=>{
         const w = state.workers.find(x=>x.id===p.workerId);
-        const typeLabel = p.type==='avans' ? 'Avans' : (p.type==='foiz' ? "% to'lov" : 'Oylik');
-        return { 'Sana': p.date, 'Xodim': w?w.name:'—', 'Turi': typeLabel, 'Izoh': p.note, 'Summa': p.amount };
-      });
-      const wsWP = XLSX.utils.json_to_sheet(workerPaySheet);
-      wsWP['!cols'] = [{wch:12},{wch:20},{wch:12},{wch:22},{wch:14}];
-      applyCurrencyFormat(wsWP, [4], workerPaySheet.length);
-      XLSX.utils.book_append_sheet(wb, wsWP, 'Xodim tolovlari');
+        return { date:p.date, w:w?w.name:'—', type: p.type==='avans' ? 'Avans' : (p.type==='foiz' ? "% to'lov" : 'Oylik'), note:p.note||'', amount:p.amount };
+      }), {tab:'FF1F5F99'});
 
-      XLSX.writeFile(wb, `EXCLUSIVE_MEBEL_hisobot_${today()}.xlsx`);
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const safe = (window.CURRENT_COMPANY_NAME || 'hisobot').replace(/[^\wа-яА-Я\-]+/g,'_');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `UstaHisob_${safe}_${today()}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
     }catch(e){
       openAlertModal("Eksport qilishda xatolik yuz berdi: " + e.message);
+    }finally{
+      btn.disabled = false; btn.textContent = '⬇ Excelga eksport qilish (.xlsx)';
     }
   });
 
