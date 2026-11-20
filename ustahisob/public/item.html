@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mahsulot ma'lumoti</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap');
+:root{
+  --paper:#F6F1E6; --card:#FFFDF9; --ink:#2A2118; --ink-soft:#6B5D4E;
+  --line:#D9C9AC; --wood:#A9683C; --wood-dark:#7C4A28; --income:#3F7D53; --income-bg:#E7F0E7;
+}
+*{box-sizing:border-box;}
+body{ margin:0; font-family:'Inter',sans-serif; background:var(--paper); color:var(--ink); }
+.wrap{ max-width:520px; margin:0 auto; padding-bottom:40px; }
+.topband{
+  background:linear-gradient(135deg,var(--wood-dark),var(--wood));
+  color:#FBF3E7; padding:20px 22px 18px; text-align:center;
+}
+.topband .co{ font-family:'Zilla Slab',serif; font-weight:700; font-size:20px; }
+.topband .trade{ font-size:12px; color:#F0DEC3; margin-top:2px; text-transform:capitalize; }
+
+.gallery{ background:#000; }
+.gallery img{ width:100%; display:block; max-height:420px; object-fit:cover; }
+.gallery-empty{
+  height:220px; display:flex; align-items:center; justify-content:center;
+  background:var(--card); color:var(--ink-soft); font-size:14px;
+}
+.thumbs{ display:flex; gap:6px; padding:8px; background:var(--card); overflow-x:auto; }
+.thumbs img{ width:64px; height:64px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid transparent; flex:none; }
+.thumbs img.active{ border-color:var(--wood); }
+
+.card{ background:var(--card); margin:14px; border-radius:12px; border:1px solid var(--line); padding:18px 20px; }
+.card h1{ font-family:'Zilla Slab',serif; font-size:22px; margin:0 0 4px; }
+.code{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--ink-soft); margin-bottom:14px; }
+.badge{ display:inline-block; font-size:12px; font-weight:600; padding:4px 12px; border-radius:100px; background:var(--income-bg); color:var(--income); margin-bottom:14px; }
+.row{ display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); font-size:14px; }
+.row:last-child{ border-bottom:none; }
+.row .lbl{ color:var(--ink-soft); }
+.row .val{ font-weight:600; text-align:right; max-width:60%; }
+.price{ font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600; color:var(--wood-dark); }
+.materials{ font-size:14px; line-height:1.6; white-space:pre-wrap; }
+
+.footer{ text-align:center; padding:20px; font-size:12.5px; color:var(--ink-soft); }
+.footer a{ color:var(--wood-dark); font-weight:600; text-decoration:none; }
+.loading, .errbox{ text-align:center; padding:60px 20px; color:var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="loading" id="loading">Yuklanmoqda...</div>
+</div>
+
+<script>
+(async function(){
+  const params = new URLSearchParams(window.location.search);
+  const b = params.get('b');
+  const c = params.get('c');
+  const app = document.getElementById('app');
+
+  function fmt(n){
+    n = Math.round(Number(n)||0);
+    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + " so'm";
+  }
+  const STATUS_LABELS = { jarayonda: 'Jarayonda', tayyor: 'Tayyor', topshirilgan: 'Topshirilgan' };
+
+  if(!b || !c){
+    app.innerHTML = '<div class="errbox">Havola noto\'g\'ri.</div>';
+    return;
+  }
+
+  try{
+    const res = await fetch(`/api/public/item?b=${encodeURIComponent(b)}&c=${encodeURIComponent(c)}`);
+    if(!res.ok){
+      const d = await res.json().catch(()=>({}));
+      app.innerHTML = `<div class="errbox">${d.error || 'Mahsulot topilmadi.'}</div>`;
+      return;
+    }
+    const data = await res.json();
+    const item = data.item;
+    const company = data.company;
+    const photos = item.photos && item.photos.length ? item.photos : [];
+
+    const galleryHtml = photos.length
+      ? `<img id="main-photo" src="${photos[0]}" alt="${item.name}">`
+      : `<div class="gallery-empty">Rasm qo'shilmagan</div>`;
+
+    const thumbsHtml = photos.length > 1
+      ? `<div class="thumbs">${photos.map((p,i)=>`<img src="${p}" class="${i===0?'active':''}" data-src="${p}">`).join('')}</div>`
+      : '';
+
+    app.innerHTML = `
+      <div class="topband">
+        <div class="co">${company.name}</div>
+        <div class="trade">${company.trade || ''}</div>
+      </div>
+      <div class="gallery">${galleryHtml}</div>
+      ${thumbsHtml}
+      <div class="card">
+        <span class="badge">${STATUS_LABELS[item.status] || item.status}</span>
+        <h1>${item.name}</h1>
+        <div class="code">Kod: ${item.code}</div>
+        <div class="row"><span class="lbl">Narxi</span><span class="val price">${fmt(item.price)}</span></div>
+        <div class="row"><span class="lbl">Kafolat</span><span class="val">${item.warrantyMonths} oy</span></div>
+        ${item.materials ? `<div class="row" style="display:block;"><div class="lbl" style="margin-bottom:6px;">Materiallar</div><div class="materials">${item.materials}</div></div>` : ''}
+      </div>
+      <div class="footer">Bu sahifa <a href="https://ustahisob.uz" target="_blank">UstaHisob</a> orqali yaratilgan</div>
+    `;
+
+    if(photos.length > 1){
+      document.querySelectorAll('.thumbs img').forEach(t=>{
+        t.addEventListener('click', ()=>{
+          document.getElementById('main-photo').src = t.dataset.src;
+          document.querySelectorAll('.thumbs img').forEach(x=>x.classList.remove('active'));
+          t.classList.add('active');
+        });
+      });
+    }
+  }catch(e){
+    app.innerHTML = '<div class="errbox">Yuklashda xatolik yuz berdi.</div>';
+  }
+})();
+</script>
+</body>
+</html>

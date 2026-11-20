@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin panel — UstaHisob</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap');
+:root{
+  --paper:#F6F1E6; --paper-deep:#EFE6D6; --card:#FFFDF9; --ink:#2A2118; --ink-soft:#6B5D4E;
+  --line:#D9C9AC; --line-soft:#E7DBC4; --wood:#A9683C; --wood-dark:#7C4A28;
+  --income:#3F7D53; --income-bg:#E7F0E7; --expense:#B23B32; --expense-bg:#F5E6E2;
+}
+*{box-sizing:border-box;}
+body{ margin:0; font-family:'Inter',sans-serif; background:var(--paper); color:var(--ink); }
+.topbar{ background:linear-gradient(135deg,var(--wood-dark),var(--wood)); color:#FBF3E7; padding:20px 26px; }
+.topbar h1{ font-family:'Zilla Slab',serif; font-size:20px; margin:0; }
+.topbar span{ font-size:12px; color:#F0DEC3; }
+.wrap{ max-width:980px; margin:0 auto; padding:20px 20px 60px; }
+
+.gate{ max-width:380px; margin:80px auto; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:28px; text-align:center; }
+.gate input{ width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:14px; margin:14px 0; font-family:inherit; }
+.gate button{ width:100%; padding:11px; border:none; border-radius:8px; background:var(--wood); color:#fff; font-weight:600; cursor:pointer; }
+.gate .err{ color:var(--expense); font-size:13px; margin-top:8px; display:none; }
+
+.panel{ background:var(--card); border:1px solid var(--line); border-radius:10px; margin-bottom:20px; overflow:hidden; }
+.panel-head{ background:var(--paper-deep); padding:14px 18px; border-bottom:1px solid var(--line); }
+.panel-head h3{ margin:0; font-family:'Zilla Slab',serif; font-size:16px; }
+.panel-body{ padding:16px 18px; }
+
+table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+th{ text-align:left; font-size:11px; text-transform:uppercase; color:var(--ink-soft); border-bottom:2px solid var(--line); padding:8px; }
+td{ padding:9px 8px; border-bottom:1px solid var(--line-soft); vertical-align:middle; }
+.num{ font-family:'IBM Plex Mono',monospace; }
+.badge{ display:inline-block; font-size:11px; font-weight:600; padding:3px 9px; border-radius:100px; }
+.badge.active{ background:var(--income-bg); color:var(--income); }
+.badge.trial{ background:#F5EBD3; color:#8A6A1F; }
+.badge.expired,.badge.pending_payment{ background:var(--expense-bg); color:var(--expense); }
+.btn{ font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600; padding:7px 12px; border-radius:6px; border:1px solid var(--line); background:transparent; color:var(--ink); cursor:pointer; margin-right:4px; }
+.btn.approve{ background:var(--income); color:#fff; border-color:var(--income); }
+.btn.reject{ border-color:var(--expense); color:var(--expense); }
+.empty{ text-align:center; color:var(--ink-soft); padding:24px; }
+.refresh{ float:right; }
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <h2 style="font-family:'Zilla Slab',serif;margin:0;">Admin panel</h2>
+  <p style="font-size:13px;color:var(--ink-soft);">ADMIN_KEY kalitini kiriting</p>
+  <input id="admin-key-input" type="password" placeholder="Admin kalit">
+  <button onclick="tryLogin()">Kirish</button>
+  <div class="err" id="gate-err">Kalit noto'g'ri yoki server javob bermadi.</div>
+</div>
+
+<div id="main" style="display:none;">
+  <div class="topbar">
+    <h1>UstaHisob — Admin panel</h1>
+    <span>To'lov so'rovlari va kompaniyalar</span>
+  </div>
+  <div class="wrap">
+
+    <div class="panel">
+      <div class="panel-head"><h3>Kutilayotgan to'lov so'rovlari <button class="btn refresh" onclick="loadRequests()">Yangilash</button></h3></div>
+      <div class="panel-body">
+        <div id="requests-area">Yuklanmoqda...</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Barcha kompaniyalar <button class="btn refresh" onclick="loadCompanies()">Yangilash</button></h3></div>
+      <div class="panel-body">
+        <div id="companies-area">Yuklanmoqda...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let ADMIN_KEY = sessionStorage.getItem('uh_admin_key') || '';
+
+function fmt(n){
+  n = Math.round(Number(n)||0);
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + " so'm";
+}
+const STATUS_LABELS = { active:'Faol', trial:'Sinov', expired:'Tugagan', pending_payment:"To'lov kutilmoqda" };
+const PLAN_LABELS = { monthly:'Oylik', yearly:'Yillik', trial:'Sinov' };
+
+async function apiGet(path){
+  const res = await fetch(path, { headers: { 'x-admin-key': ADMIN_KEY } });
+  if(res.status === 403) throw new Error('forbidden');
+  return res.json();
+}
+async function apiPost(path){
+  const res = await fetch(path, { method:'POST', headers: { 'x-admin-key': ADMIN_KEY } });
+  if(res.status === 403) throw new Error('forbidden');
+  return res.json();
+}
+
+async function tryLogin(){
+  const key = document.getElementById('admin-key-input').value.trim();
+  if(!key) return;
+  ADMIN_KEY = key;
+  try{
+    await apiGet('/api/subscription/admin/requests');
+    sessionStorage.setItem('uh_admin_key', ADMIN_KEY);
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('main').style.display = 'block';
+    loadRequests();
+    loadCompanies();
+  }catch(e){
+    document.getElementById('gate-err').style.display = 'block';
+  }
+}
+
+async function loadRequests(){
+  const area = document.getElementById('requests-area');
+  area.innerHTML = 'Yuklanmoqda...';
+  try{
+    const d = await apiGet('/api/subscription/admin/requests');
+    const rows = d.requests || [];
+    if(rows.length === 0){
+      area.innerHTML = '<div class="empty">Kutilayotgan so\'rov yo\'q.</div>';
+      return;
+    }
+    area.innerHTML = `<table><thead><tr>
+        <th>Kompaniya</th><th>Email</th><th>Reja</th><th>Summa</th><th>Izoh</th><th>Sana</th><th></th>
+      </tr></thead><tbody>` +
+      rows.map(r => `<tr>
+        <td>${r.company_name}</td>
+        <td>${r.user_email||''}</td>
+        <td>${PLAN_LABELS[r.plan]||r.plan}</td>
+        <td class="num">${fmt(r.amount)}</td>
+        <td>${r.note||''}</td>
+        <td>${r.created_at}</td>
+        <td>
+          <button class="btn approve" onclick="approve('${r.id}')">Tasdiqlash</button>
+          <button class="btn reject" onclick="reject('${r.id}')">Rad etish</button>
+        </td>
+      </tr>`).join('') + `</tbody></table>`;
+  }catch(e){
+    area.innerHTML = '<div class="empty">Yuklashda xatolik.</div>';
+  }
+}
+
+async function approve(id){
+  if(!confirm("To'lovni tasdiqlaysizmi? Obuna darhol faollashadi.")) return;
+  await apiPost('/api/subscription/admin/approve/' + id);
+  loadRequests();
+  loadCompanies();
+}
+async function reject(id){
+  if(!confirm("So'rovni rad etasizmi?")) return;
+  await apiPost('/api/subscription/admin/reject/' + id);
+  loadRequests();
+  loadCompanies();
+}
+
+async function loadCompanies(){
+  const area = document.getElementById('companies-area');
+  area.innerHTML = 'Yuklanmoqda...';
+  try{
+    const d = await apiGet('/api/subscription/admin/companies');
+    const rows = d.companies || [];
+    if(rows.length === 0){
+      area.innerHTML = '<div class="empty">Kompaniya yo\'q.</div>';
+      return;
+    }
+    area.innerHTML = `<table><thead><tr>
+        <th>Kompaniya</th><th>Soha</th><th>Email</th><th>Reja</th><th>Holat</th><th>Muddati</th><th>Ro'yxatdan o'tgan</th>
+      </tr></thead><tbody>` +
+      rows.map(r => `<tr>
+        <td>${r.name}</td>
+        <td>${r.trade||''}</td>
+        <td>${r.user_email||''}</td>
+        <td>${PLAN_LABELS[r.plan]||r.plan||''}</td>
+        <td><span class="badge ${r.sub_status}">${STATUS_LABELS[r.sub_status]||r.sub_status||''}</span></td>
+        <td>${r.expires_at||''}</td>
+        <td>${r.created_at}</td>
+      </tr>`).join('') + `</tbody></table>`;
+  }catch(e){
+    area.innerHTML = '<div class="empty">Yuklashda xatolik.</div>';
+  }
+}
+
+// avval saqlangan kalit bo'lsa, avtomatik kirishga urinib ko'ramiz
+if(ADMIN_KEY){
+  (async () => {
+    try{
+      await apiGet('/api/subscription/admin/requests');
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('main').style.display = 'block';
+      loadRequests();
+      loadCompanies();
+    }catch(e){ sessionStorage.removeItem('uh_admin_key'); }
+  })();
+}
+
+document.getElementById('admin-key-input').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') tryLogin();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ro'yxatdan o'tish — UstaHisob</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@600;700&family=Inter:wght@400;500;600;700&display=swap');
+:root{
+  --paper:#F6F1E6; --card:#FFFDF9; --ink:#2A2118; --ink-soft:#6B5D4E;
+  --line:#D9C9AC; --wood:#A9683C; --wood-dark:#7C4A28; --error:#B23B32; --error-bg:#F5E6E2;
+  --income:#3F7D53; --income-bg:#E7F0E7;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+  font-family:'Inter',sans-serif; background:var(--paper); color:var(--ink); padding:20px;
+}
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:14px;
+  padding:36px 32px; width:100%; max-width:400px; box-shadow:0 4px 24px rgba(42,33,24,0.08);
+}
+h1{ font-family:'Zilla Slab',serif; font-size:20px; text-align:center; margin:0 0 4px; }
+.sub{ text-align:center; font-size:13px; color:var(--ink-soft); margin-bottom:8px; }
+.trial{
+  background:var(--income-bg); color:var(--income); font-size:12.5px; font-weight:600;
+  text-align:center; padding:8px; border-radius:8px; margin-bottom:22px;
+}
+label{ display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px; }
+input, select{
+  width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:8px;
+  font-size:14px; margin-bottom:16px; font-family:inherit;
+}
+input:focus{ outline:2px solid var(--wood); outline-offset:1px; }
+button{
+  width:100%; padding:12px; border:none; border-radius:8px; background:var(--wood);
+  color:#fff; font-weight:600; font-size:14px; cursor:pointer; font-family:inherit;
+}
+button:hover{ background:var(--wood-dark); }
+button:disabled{ opacity:0.6; cursor:default; }
+.err{
+  background:var(--error-bg); color:var(--error); font-size:13px; padding:10px 12px;
+  border-radius:8px; margin-bottom:16px; display:none;
+}
+.foot{ text-align:center; font-size:13px; margin-top:18px; color:var(--ink-soft); }
+.foot a{ color:var(--wood-dark); font-weight:600; text-decoration:none; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>USTAHISOB</h1>
+    <div class="sub">Har qanday usta uchun moliya boshqaruvi</div>
+    <div class="trial">🎁 14 kunlik bepul sinov muddati</div>
+    <div class="err" id="err"></div>
+    <form id="reg-form">
+      <label>Kompaniya / usta nomi</label>
+      <input id="companyName" required placeholder="Ilhomjon Mebel">
+      <label>Soha</label>
+      <select id="trade">
+        <option value="mebel">Mebel ustasi</option>
+        <option value="qurilish">Qurilish / g'isht terish</option>
+        <option value="elektrik">Elektrik</option>
+        <option value="santexnik">Santexnik</option>
+        <option value="suvoq_boyoq">Suvoqchi / bo'yoqchi</option>
+        <option value="kafel_parket">Kafelchi / parketchi</option>
+        <option value="payvand_temir">Payvandchi / temirchi</option>
+        <option value="tom">Tom yopuvchi</option>
+        <option value="deraza_eshik">Deraza / eshik o'rnatuvchi</option>
+        <option value="loyiha_dizayn">Arxitektor / dizayner</option>
+        <option value="landshaft">Landshaft ustasi</option>
+        <option value="boshqa">Boshqa</option>
+      </select>
+      <label>Email</label>
+      <input id="email" type="email" required placeholder="siz@mebel.uz">
+      <label>Parol</label>
+      <input id="password" type="password" required minlength="6" placeholder="Kamida 6 belgi">
+      <button type="submit" id="submit-btn">Ro'yxatdan o'tish</button>
+    </form>
+    <div class="foot">Hisobingiz bormi? <a href="/login.html">Kirish</a></div>
+  </div>
+
+<script>
+const form = document.getElementById('reg-form');
+const errEl = document.getElementById('err');
+const btn = document.getElementById('submit-btn');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  errEl.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Yaratilmoqda...';
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        companyName: document.getElementById('companyName').value.trim(),
+        trade: document.getElementById('trade').value,
+        email: document.getElementById('email').value.trim(),
+        password: document.getElementById('password').value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Xatolik yuz berdi');
+    localStorage.setItem('emb_token', data.token);
+    localStorage.setItem('emb_company', data.user.companyName);
+    window.location.href = '/app.html';
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = "Ro'yxatdan o'tish";
+  }
+});
+</script>
+</body>
+</html>

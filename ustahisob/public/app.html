@@ -1,0 +1,2505 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UstaHisob — Moliya boshqaruvi</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --paper:#F6F1E6;
+  --paper-deep:#EFE6D6;
+  --card:#FFFDF9;
+  --ink:#2A2118;
+  --ink-soft:#6B5D4E;
+  --line:#D9C9AC;
+  --line-soft:#E7DBC4;
+  --wood:#A9683C;
+  --wood-dark:#7C4A28;
+  --income:#3F7D53;
+  --income-bg:#E7F0E7;
+  --expense:#B23B32;
+  --expense-bg:#F5E6E2;
+  --shadow: 0 1px 2px rgba(42,33,24,0.06), 0 4px 14px rgba(42,33,24,0.06);
+}
+*{box-sizing:border-box;}
+.mb-app{
+  font-family:'Inter',sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+  min-height:100%;
+  padding:0;
+  border-radius:12px;
+  overflow:hidden;
+  border:1px solid var(--line-soft);
+}
+.mb-mono{font-family:'IBM Plex Mono',monospace;}
+.mb-slab{font-family:'Zilla Slab',serif;}
+
+/* header */
+.mb-topbar{
+  background:linear-gradient(135deg,var(--wood-dark),var(--wood));
+  color:#FBF3E7;
+  padding:22px 28px 18px;
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  flex-wrap:wrap;
+}
+.mb-topbar::after{
+  content:"";
+  position:absolute; left:0; right:0; bottom:0;
+  height:6px;
+  background:repeating-linear-gradient(90deg,rgba(0,0,0,0.12) 0 2px, transparent 2px 14px);
+}
+.mb-brand{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;}
+.mb-brand h1{
+  font-family:'Zilla Slab',serif;
+  font-weight:700;
+  font-size:22px;
+  margin:0;
+  letter-spacing:0.3px;
+}
+.mb-brand span{
+  font-size:12.5px;
+  color:#F0DEC3;
+  font-style:italic;
+}
+
+.mb-account-bar{ display:flex; align-items:center; gap:10px; }
+.mb-company-name{ font-size:13px; font-weight:600; color:#FBF3E7; }
+.mb-sub-badge{
+  font-size:11px; font-weight:600; padding:4px 10px; border-radius:100px;
+  background:rgba(255,255,255,0.18); color:#FBF3E7;
+}
+.mb-sub-badge.trial{ background:#F5EBD3; color:#8A6A1F; }
+.mb-sub-badge.active{ background:#E7F0E7; color:#3F7D53; }
+.mb-sub-badge.expired, .mb-sub-badge.pending_payment{ background:#F5E6E2; color:#B23B32; }
+.mb-logout-btn{
+  font-family:'Inter',sans-serif; font-size:12px; font-weight:600;
+  padding:7px 13px; border-radius:7px; border:1px solid rgba(255,255,255,0.4);
+  background:transparent; color:#FBF3E7; cursor:pointer;
+}
+.mb-logout-btn:hover{ background:rgba(255,255,255,0.15); }
+
+.mb-paywall-overlay{
+  position:fixed; inset:0; background:rgba(42,33,24,0.6);
+  display:flex; align-items:center; justify-content:center; z-index:2000; padding:20px;
+}
+.mb-paywall-overlay.hidden{ display:none; }
+.mb-paywall-card{
+  background:var(--card); border-radius:14px; max-width:520px; width:100%;
+  padding:32px; box-shadow:0 8px 40px rgba(0,0,0,0.3);
+}
+.mb-paywall-card h2{ font-family:'Zilla Slab',serif; margin:0 0 10px; font-size:20px; }
+.mb-paywall-card p{ font-size:14px; color:var(--ink-soft); line-height:1.6; margin:0 0 20px; }
+.mb-plan-cards{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+.mb-plan-card{
+  border:2px solid var(--line); border-radius:10px; padding:16px; text-align:center; cursor:pointer;
+}
+.mb-plan-card:hover{ border-color:var(--wood); }
+.mb-plan-card .name{ font-family:'Zilla Slab',serif; font-weight:600; font-size:15px; margin-bottom:6px; }
+.mb-plan-card .price{ font-family:'IBM Plex Mono',monospace; font-size:18px; font-weight:600; color:var(--wood-dark); margin-bottom:10px; }
+.mb-plan-card button{
+  width:100%; padding:9px; border:none; border-radius:7px; background:var(--wood); color:#fff;
+  font-weight:600; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif;
+}
+.mb-plan-card button:hover{ background:var(--wood-dark); }
+.mb-paywall-note{ font-size:12.5px; color:var(--ink-soft); text-align:center; }
+
+/* tabs styled like ledger folder tabs */
+.mb-tabs{
+  display:flex;
+  gap:4px;
+  padding:0 20px;
+  background:var(--paper-deep);
+  border-bottom:1px solid var(--line);
+  overflow-x:auto;
+}
+.mb-tab{
+  font-family:'Zilla Slab',serif;
+  font-weight:600;
+  font-size:14.5px;
+  color:var(--ink-soft);
+  background:transparent;
+  border:none;
+  padding:12px 18px 10px;
+  cursor:pointer;
+  position:relative;
+  top:1px;
+  white-space:nowrap;
+  border-radius:8px 8px 0 0;
+}
+.mb-tab:hover{ color:var(--ink); }
+.mb-tab.active{
+  color:var(--wood-dark);
+  background:var(--paper);
+  border:1px solid var(--line);
+  border-bottom:1px solid var(--paper);
+}
+
+.mb-body{ padding:22px 24px 32px; }
+.mb-section{ display:none; }
+.mb-section.active{ display:block; animation:fadein .25s ease; }
+@keyframes fadein{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+
+/* dashboard cards */
+.mb-cards{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:14px;
+  margin-bottom:22px;
+}
+
+/* QR item cards */
+.mb-qr-card{
+  background:var(--card);
+  border:1px solid var(--line-soft);
+  border-radius:10px;
+  overflow:hidden;
+  box-shadow:var(--shadow);
+  display:flex; flex-direction:column;
+}
+.mb-qr-card .photo{
+  width:100%; height:140px; object-fit:cover; background:var(--paper-deep);
+}
+.mb-qr-card .photo-empty{
+  width:100%; height:140px; display:flex; align-items:center; justify-content:center;
+  background:var(--paper-deep); color:var(--ink-soft); font-size:12px;
+}
+.mb-qr-card .body{ padding:12px 14px; flex:1; display:flex; flex-direction:column; gap:6px; }
+.mb-qr-card .name{ font-family:'Zilla Slab',serif; font-weight:600; font-size:15px; }
+.mb-qr-card .code{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft); }
+.mb-qr-card .price{ font-family:'IBM Plex Mono',monospace; font-weight:600; color:var(--wood-dark); }
+.mb-qr-card .qr-row{ display:flex; align-items:center; gap:10px; margin-top:6px; }
+.mb-qr-card .qr-row img{ width:64px; height:64px; border:1px solid var(--line); border-radius:6px; }
+.mb-qr-card .qr-actions{ display:flex; flex-direction:column; gap:6px; flex:1; }
+.mb-card{
+  background:var(--card);
+  border:1px solid var(--line-soft);
+  border-radius:10px;
+  padding:16px 18px;
+  box-shadow:var(--shadow);
+}
+.mb-card .lbl{
+  font-size:11.5px;
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  color:var(--ink-soft);
+  font-weight:600;
+  margin-bottom:8px;
+}
+.mb-card .val{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:22px;
+  font-weight:600;
+  letter-spacing:-0.2px;
+}
+.mb-card.income .val{ color:var(--income); }
+.mb-card.expense .val{ color:var(--expense); }
+.mb-card.profit .val{ color:var(--wood-dark); }
+.mb-card .sub{ font-size:11.5px; color:var(--ink-soft); margin-top:4px;}
+
+.mb-panel{
+  background:var(--card);
+  border:1px solid var(--line-soft);
+  border-radius:10px;
+  box-shadow:var(--shadow);
+  margin-bottom:20px;
+  overflow:hidden;
+}
+.mb-panel-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 18px;
+  border-bottom:1px solid var(--line-soft);
+  background:var(--paper-deep);
+}
+.mb-panel-head h3{
+  font-family:'Zilla Slab',serif;
+  font-size:16px;
+  margin:0;
+  font-weight:600;
+}
+.mb-panel-body{ padding:16px 18px; }
+
+/* buttons */
+.mb-btn{
+  font-family:'Inter',sans-serif;
+  font-weight:600;
+  font-size:13px;
+  padding:9px 16px;
+  border-radius:7px;
+  border:1px solid var(--wood-dark);
+  background:var(--wood);
+  color:#fff;
+  cursor:pointer;
+  transition:transform .1s ease, box-shadow .1s ease;
+}
+.mb-btn:hover{ background:var(--wood-dark); }
+.mb-btn:active{ transform:scale(0.98); }
+.mb-btn.ghost{
+  background:transparent;
+  color:var(--wood-dark);
+  border:1px solid var(--line);
+}
+.mb-btn.ghost:hover{ background:var(--paper-deep); }
+.mb-btn.danger{
+  background:transparent;
+  border:1px solid var(--expense);
+  color:var(--expense);
+}
+.mb-btn.danger:hover{ background:var(--expense-bg); }
+.mb-btn.small{ padding:5px 10px; font-size:12px; }
+
+/* forms */
+.mb-form{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:12px;
+  margin-bottom:4px;
+}
+.mb-field label{
+  display:block;
+  font-size:12px;
+  color:var(--ink-soft);
+  font-weight:600;
+  margin-bottom:5px;
+}
+.mb-field input, .mb-field select, .mb-field textarea{
+  width:100%;
+  font-family:'Inter',sans-serif;
+  font-size:13.5px;
+  padding:9px 10px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:#fff;
+  color:var(--ink);
+}
+.mb-field input:focus, .mb-field select:focus, .mb-field textarea:focus{
+  outline:2px solid var(--wood);
+  outline-offset:1px;
+  border-color:var(--wood);
+}
+.mb-form-actions{ margin-top:14px; display:flex; gap:10px; }
+
+/* tables */
+.mb-table-wrap{ overflow-x:auto; }
+table.mb-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13.5px;
+}
+table.mb-table th{
+  text-align:left;
+  font-size:11.5px;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  color:var(--ink-soft);
+  border-bottom:2px solid var(--line);
+  padding:8px 10px;
+  white-space:nowrap;
+}
+table.mb-table td{
+  padding:10px 10px;
+  border-bottom:1px solid var(--line-soft);
+  vertical-align:middle;
+}
+table.mb-table tr:hover td{ background:var(--paper-deep); }
+.mb-num{ font-family:'IBM Plex Mono',monospace; text-align:right; white-space:nowrap; }
+.mb-num.income{ color:var(--income); }
+.mb-num.expense{ color:var(--expense); }
+.mb-badge{
+  display:inline-block;
+  font-size:11px;
+  font-weight:600;
+  padding:3px 9px;
+  border-radius:100px;
+}
+.mb-badge.jarayonda{ background:#F5EBD3; color:#8A6A1F; }
+.mb-badge.tayyor{ background:#DDEBF7; color:#2A5F8A; }
+.mb-badge.topshirilgan{ background:var(--income-bg); color:var(--income); }
+.mb-badge.bekor{ background:var(--expense-bg); color:var(--expense); }
+
+.mb-empty{
+  text-align:center;
+  padding:36px 20px;
+  color:var(--ink-soft);
+}
+.mb-empty .big{ font-size:15px; font-weight:600; color:var(--ink); margin-bottom:4px; font-family:'Zilla Slab',serif;}
+
+/* bars for category breakdown */
+.mb-bar-row{ margin-bottom:12px; }
+.mb-bar-row .top{ display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px; }
+.mb-bar-row .top .name{ font-weight:600; }
+.mb-bar-row .top .amt{ font-family:'IBM Plex Mono',monospace; color:var(--ink-soft); }
+.mb-bar-track{ height:9px; background:var(--paper-deep); border-radius:5px; overflow:hidden; }
+.mb-bar-fill{ height:100%; background:linear-gradient(90deg,var(--wood),var(--wood-dark)); border-radius:5px; }
+
+.mb-total-row td{ border-top:2px solid var(--ink); border-bottom:none !important; font-weight:700; }
+.mb-actions-cell{ display:flex; gap:6px; }
+
+.mb-hint{ font-size:12.5px; color:var(--ink-soft); margin-top:10px; line-height:1.5; }
+
+/* modal */
+.mb-modal-overlay{
+  position:fixed; inset:0; background:rgba(42,33,24,0.45);
+  display:flex; align-items:center; justify-content:center;
+  z-index:1000; padding:20px;
+}
+.mb-modal-overlay.hidden{ display:none; }
+.mb-modal{
+  background:var(--card);
+  border-radius:12px;
+  width:100%; max-width:380px;
+  box-shadow:0 8px 32px rgba(42,33,24,0.25);
+  overflow:hidden;
+}
+.mb-modal-head{
+  padding:16px 20px;
+  background:var(--paper-deep);
+  border-bottom:1px solid var(--line-soft);
+}
+.mb-modal-head h4{
+  font-family:'Zilla Slab',serif;
+  font-size:16px;
+  margin:0;
+  font-weight:600;
+}
+.mb-modal-body{ padding:18px 20px; }
+.mb-modal-body .mb-field{ margin-bottom:14px; }
+.mb-modal-body .mb-field:last-child{ margin-bottom:0; }
+.mb-modal-msg{ font-size:14px; line-height:1.5; color:var(--ink); }
+.mb-modal-actions{
+  padding:14px 20px 18px;
+  display:flex; justify-content:flex-end; gap:10px;
+}
+
+@media (max-width:640px){
+  .mb-body{ padding:16px; }
+  .mb-topbar{ padding:18px 16px 14px; }
+  .mb-form{ grid-template-columns:1fr; }
+}
+
+/* period selector */
+.mb-period-bar{
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:10px;
+  margin-bottom:16px;
+}
+.mb-period-bar h2{
+  font-family:'Zilla Slab',serif;
+  font-size:17px;
+  margin:0;
+  font-weight:600;
+}
+.mb-period-controls{
+  display:flex; align-items:center; gap:6px;
+  background:var(--card);
+  border:1px solid var(--line-soft);
+  border-radius:8px;
+  padding:5px;
+  box-shadow:var(--shadow);
+}
+.mb-period-controls select{
+  font-family:'Inter',sans-serif;
+  font-size:12.5px;
+  font-weight:600;
+  padding:6px 8px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:#fff;
+  color:var(--ink);
+}
+.mb-period-controls button{
+  font-family:'Inter',sans-serif;
+  font-size:12px;
+  font-weight:600;
+  padding:6px 10px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:transparent;
+  color:var(--ink-soft);
+  cursor:pointer;
+}
+.mb-period-controls button:hover{ background:var(--paper-deep); color:var(--ink); }
+.mb-period-controls button.active{ background:var(--wood); color:#fff; border-color:var(--wood-dark); }
+
+/* editable status select in table */
+.mb-status-select{
+  font-family:'Inter',sans-serif;
+  font-size:11.5px;
+  font-weight:600;
+  padding:4px 8px;
+  border-radius:100px;
+  border:1px solid var(--line);
+  cursor:pointer;
+}
+
+/* danger zone in report */
+.mb-danger-zone{
+  border:1px dashed var(--expense);
+  border-radius:10px;
+  padding:14px 16px;
+  margin-top:10px;
+}
+.mb-danger-zone h4{
+  font-family:'Zilla Slab',serif;
+  font-size:14px;
+  color:var(--expense);
+  margin:0 0 10px 0;
+}
+.mb-danger-row{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; flex-wrap:wrap;
+  padding:8px 0;
+  border-bottom:1px solid var(--line-soft);
+}
+.mb-danger-row:last-child{ border-bottom:none; }
+.mb-danger-row .lbl{ font-size:13px; color:var(--ink); }
+.mb-danger-row .lbl .cnt{ color:var(--ink-soft); font-size:12px; }
+
+/* print contract modal */
+.mb-contract-preview{
+  background:#fff;
+  border:1px solid var(--line);
+  padding:0;
+  max-height:60vh;
+  overflow-y:auto;
+}
+
+/* item builder (order rooms) */
+.mb-item-builder{
+  margin-top:16px;
+  padding:14px 16px;
+  background:var(--paper-deep);
+  border:1px dashed var(--line);
+  border-radius:10px;
+}
+.mb-item-builder h4{
+  font-family:'Zilla Slab',serif;
+  font-size:15px;
+  margin:0 0 4px;
+  font-weight:600;
+}
+.mb-item-row-detail{
+  font-size:12.5px;
+  color:var(--ink-soft);
+}
+.mb-expand-btn{
+  background:none; border:none; cursor:pointer;
+  color:var(--wood-dark); font-weight:600; font-size:12.5px;
+  padding:2px 0; text-decoration:underline;
+}
+tr.mb-item-detail-row td{
+  background:var(--paper-deep);
+  padding:0;
+}
+tr.mb-item-detail-row .inner{ padding:10px 16px; }
+</style>
+</head>
+<body>
+<div class="mb-app" id="app">
+
+  <div class="mb-topbar">
+    <div class="mb-brand">
+      <h1>USTAHISOB</h1>
+      <span>Har qanday usta uchun moliya boshqaruvi</span>
+    </div>
+    <div class="mb-account-bar">
+      <span class="mb-company-name" id="acc-company">—</span>
+      <span class="mb-sub-badge" id="acc-sub-badge">—</span>
+      <button class="mb-logout-btn" id="acc-logout">Chiqish</button>
+    </div>
+  </div>
+
+  <div class="mb-paywall-overlay hidden" id="paywall-overlay">
+    <div class="mb-paywall-card">
+      <h2>Obuna muddati tugagan</h2>
+      <p id="paywall-msg">Ma'lumotlaringizga kirish uchun obunani yangilang. Ma'lumotlaringiz saqlanib turibdi — to'lov tasdiqlangach darhol davom etasiz.</p>
+      <div class="mb-plan-cards" id="paywall-plans"></div>
+      <div class="mb-paywall-note" id="paywall-status"></div>
+    </div>
+  </div>
+
+  <div class="mb-tabs">
+    <button class="mb-tab active" data-tab="dashboard">Boshqaruv paneli</button>
+    <button class="mb-tab" data-tab="orders">Buyurtmalar</button>
+    <button class="mb-tab" data-tab="expenses">Xarajatlar</button>
+    <button class="mb-tab" data-tab="workers">Xodimlar</button>
+    <button class="mb-tab" data-tab="qr">QR mahsulotlar</button>
+    <button class="mb-tab" data-tab="report">Hisobot / Export</button>
+  </div>
+
+  <div class="mb-body">
+
+    <!-- DASHBOARD -->
+    <div class="mb-section active" id="tab-dashboard">
+      <div class="mb-period-bar">
+        <h2 id="period-label">Barcha vaqt</h2>
+        <div class="mb-period-controls">
+          <select id="period-month">
+            <option value="all">Barcha oylar</option>
+            <option value="01">Yanvar</option>
+            <option value="02">Fevral</option>
+            <option value="03">Mart</option>
+            <option value="04">Aprel</option>
+            <option value="05">May</option>
+            <option value="06">Iyun</option>
+            <option value="07">Iyul</option>
+            <option value="08">Avgust</option>
+            <option value="09">Sentyabr</option>
+            <option value="10">Oktyabr</option>
+            <option value="11">Noyabr</option>
+            <option value="12">Dekabr</option>
+          </select>
+          <select id="period-year">
+            <option value="all">Barcha yillar</option>
+          </select>
+          <button id="period-today">Shu oy</button>
+        </div>
+      </div>
+      <div class="mb-cards" id="dash-cards"></div>
+
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>So'nggi harakatlar</h3></div>
+        <div class="mb-panel-body">
+          <div class="mb-table-wrap">
+            <table class="mb-table" id="recent-table"></table>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>Xarajatlar turkumlar bo'yicha</h3></div>
+        <div class="mb-panel-body" id="dash-categories"></div>
+      </div>
+    </div>
+
+    <!-- ORDERS -->
+    <div class="mb-section" id="tab-orders">
+      <div class="mb-panel">
+        <div class="mb-panel-head">
+          <h3>Yangi buyurtma qo'shish</h3>
+        </div>
+        <div class="mb-panel-body">
+          <div class="mb-form">
+            <div class="mb-field"><label>Mijoz ismi</label><input id="o-client" placeholder="Aziz Rahimov"></div>
+            <div class="mb-field"><label>Mijoz telefoni</label><input id="o-phone" placeholder="+998 90 123 45 67"></div>
+            <div class="mb-field"><label>Mijoz manzili</label><input id="o-address" placeholder="Qo'qon shahar, ..."></div>
+          </div>
+
+          <div class="mb-item-builder">
+            <h4>Ishlar / bo'limlar</h4>
+            <p class="mb-hint" style="margin-top:0;">Har bir ish/bo'lim uchun narx, sana, holat va mas'ul usta(lar)ni alohida belgilab, ro'yxatga qo'shing.</p>
+            <div class="mb-form">
+              <div class="mb-field">
+                <label>Ish / bo'lim nomi</label>
+                <select id="i-name-preset">
+                  <option value="Oshxona">Oshxona (mebel)</option>
+                  <option value="Yotoqxona">Yotoqxona (mebel)</option>
+                  <option value="Sanuzel">Sanuzel</option>
+                  <option value="Prixojka">Prixojka (mebel)</option>
+                  <option value="Bolalar xonasi">Bolalar xonasi (mebel)</option>
+                  <option value="Elektr montaji">Elektr montaji</option>
+                  <option value="Santexnika ishlari">Santexnika ishlari</option>
+                  <option value="Suvoq ishlari">Suvoq ishlari</option>
+                  <option value="Bo'yoq ishlari">Bo'yoq ishlari</option>
+                  <option value="Kafel yotqizish">Kafel yotqizish</option>
+                  <option value="Parket yotqizish">Parket yotqizish</option>
+                  <option value="Gipsokarton ishlari">Gipsokarton ishlari</option>
+                  <option value="Tom yopish">Tom yopish</option>
+                  <option value="Deraza o'rnatish">Deraza o'rnatish</option>
+                  <option value="Eshik o'rnatish">Eshik o'rnatish</option>
+                  <option value="Payvandlash ishlari">Payvandlash ishlari</option>
+                  <option value="Fasad ishlari">Fasad ishlari</option>
+                  <option value="__custom">Boshqa (o'zi kiriting)</option>
+                </select>
+              </div>
+              <div class="mb-field" id="i-name-custom-field" style="display:none;">
+                <label>Ish / bo'lim nomi (qo'lda)</label>
+                <input id="i-name-custom" placeholder="Balkon">
+              </div>
+              <div class="mb-field"><label>Narxi (so'm)</label><input id="i-price" type="number" placeholder="5000000"></div>
+              <div class="mb-field"><label>Buyurtma sanasi</label><input id="i-date" type="date"></div>
+              <div class="mb-field"><label>Topshirish sanasi (reja)</label><input id="i-delivery" type="date"></div>
+              <div class="mb-field"><label>Holati</label>
+                <select id="i-status">
+                  <option value="jarayonda">Jarayonda</option>
+                  <option value="tayyor">Tayyor (kutilmoqda)</option>
+                  <option value="topshirilgan">Topshirilgan</option>
+                  <option value="bekor">Bekor qilingan</option>
+                </select>
+              </div>
+              <div class="mb-field">
+                <label>Mas'ul usta(lar) (foizchi bo'lsa)</label>
+                <select id="i-worker" multiple size="4"></select>
+                <div class="mb-hint" style="margin:4px 0 0;">Bir nechtasini tanlash uchun Ctrl (Mac'da Cmd) tugmasini bosib turib bosing.</div>
+              </div>
+            </div>
+            <div class="mb-form-actions">
+              <button class="mb-btn ghost" id="add-item-btn">+ Ro'yxatga qo'shish</button>
+            </div>
+
+            <div class="mb-table-wrap" style="margin-top:14px;">
+              <table class="mb-table" id="draft-items-table"></table>
+            </div>
+          </div>
+
+          <div class="mb-form" style="margin-top:16px;">
+            <div class="mb-field"><label>Umumiy narx (so'm)</label><input id="o-total" type="number" readonly placeholder="0"></div>
+            <div class="mb-field"><label>To'langan summa (so'm)</label><input id="o-paid" type="number" placeholder="7500000"></div>
+          </div>
+
+          <div class="mb-form-actions">
+            <button class="mb-btn" id="add-order-btn">+ Buyurtma qo'shish</button>
+          </div>
+          <p class="mb-hint">Buyurtma qo'shilganda avtomatik tartib raqami beriladi va "Shartnoma" tugmasi orqali tayyor shartnomani darhol chop etishingiz mumkin.</p>
+        </div>
+      </div>
+
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>Barcha buyurtmalar</h3></div>
+        <div class="mb-panel-body">
+          <div class="mb-table-wrap">
+            <table class="mb-table" id="orders-table"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPENSES -->
+    <div class="mb-section" id="tab-expenses">
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>Yangi xarajat qo'shish</h3></div>
+        <div class="mb-panel-body">
+          <div class="mb-form">
+            <div class="mb-field"><label>Sana</label><input id="e-date" type="date"></div>
+            <div class="mb-field"><label>Turkum</label>
+              <select id="e-category">
+                <option>Material</option>
+                <option>Ishchi haqi</option>
+                <option>Transport</option>
+                <option>Ijara / kommunal</option>
+                <option>Boshqa</option>
+              </select>
+            </div>
+            <div class="mb-field"><label>Tavsif</label><input id="e-desc" placeholder="Masalan: orех taxta, usta Bahrom"></div>
+            <div class="mb-field"><label>Summa (so'm)</label><input id="e-amount" type="number" placeholder="1200000"></div>
+            <div class="mb-field"><label>Bog'liq buyurtma</label><select id="e-order"><option value="">Umumiy (buyurtmaga bog'liq emas)</option></select></div>
+          </div>
+          <div class="mb-form-actions">
+            <button class="mb-btn" id="add-expense-btn">+ Xarajat qo'shish</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>Barcha xarajatlar</h3></div>
+        <div class="mb-panel-body">
+          <div class="mb-table-wrap">
+            <table class="mb-table" id="expenses-table"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WORKERS -->
+    <div class="mb-section" id="tab-workers">
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>Yangi xodim qo'shish</h3></div>
+        <div class="mb-panel-body">
+          <div class="mb-form">
+            <div class="mb-field"><label>Ism familiya</label><input id="w-name" placeholder="Bahrom Tursunov"></div>
+            <div class="mb-field"><label>Lavozim</label><input id="w-position" placeholder="Usta-yog'ochchi"></div>
+            <div class="mb-field"><label>To'lov turi</label>
+              <select id="w-type">
+                <option value="oylik">Oylik maosh</option>
+                <option value="foiz">Buyurtma foydasidan %</option>
+              </select>
+            </div>
+            <div class="mb-field" id="w-salary-field"><label>Oylik maosh (so'm)</label><input id="w-salary" type="number" placeholder="4000000"></div>
+            <div class="mb-field" id="w-percent-field" style="display:none"><label>Foiz stavkasi (%)</label><input id="w-percent" type="number" placeholder="10"></div>
+          </div>
+          <div class="mb-form-actions">
+            <button class="mb-btn" id="add-worker-btn">+ Xodim qo'shish</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>Xodimlar va shu oy holati</h3></div>
+        <div class="mb-panel-body">
+          <p class="mb-hint">"Bu oy to'langan" joriy taqvim oyida berilgan avans + oylik to'lovlar yig'indisi. "Qoldiq" — belgilangan oylik maoshdan shu oy to'langan summa ayirilgani.</p>
+          <div class="mb-table-wrap">
+            <table class="mb-table" id="workers-table"></table>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>To'lovlar tarixi</h3></div>
+        <div class="mb-panel-body">
+          <div class="mb-table-wrap">
+            <table class="mb-table" id="worker-payments-table"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QR MAHSULOTLAR -->
+    <div class="mb-section" id="tab-qr">
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>Yangi QR mahsulot yaratish</h3></div>
+        <div class="mb-panel-body">
+          <p class="mb-hint" style="margin-top:0;">Har bir tayyor mebel/mahsulot uchun QR-kod yarating. Uni chop etib mahsulotga yopishtiring — mijoz skanerlaganda rasm, material, narx va kafolat ma'lumotini ko'radi.</p>
+          <div class="mb-form">
+            <div class="mb-field"><label>Mahsulot nomi</label><input id="q-name" placeholder="Oshxona garniturasi"></div>
+            <div class="mb-field"><label>Narxi (so'm)</label><input id="q-price" type="number" placeholder="8000000"></div>
+            <div class="mb-field"><label>Kafolat (oy)</label><input id="q-warranty" type="number" value="12"></div>
+            <div class="mb-field"><label>Holati</label>
+              <select id="q-status">
+                <option value="jarayonda">Jarayonda</option>
+                <option value="tayyor" selected>Tayyor</option>
+                <option value="topshirilgan">Topshirilgan</option>
+              </select>
+            </div>
+          </div>
+          <div class="mb-field" style="margin-bottom:14px;">
+            <label>Materiallar (erkin matn)</label>
+            <textarea id="q-materials" rows="3" style="width:100%;font-family:inherit;font-size:13.5px;padding:9px 10px;border:1px solid var(--line);border-radius:6px;" placeholder="AGT panel 16mm, kromka 2mm, Blum furnitura"></textarea>
+          </div>
+          <div class="mb-field" style="margin-bottom:14px;">
+            <label>Rasmlar (bir nechtasini tanlash mumkin)</label>
+            <input id="q-photos" type="file" accept="image/*" multiple>
+          </div>
+          <div class="mb-form-actions">
+            <button class="mb-btn" id="add-qr-btn">+ QR mahsulot yaratish</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>Telegram bot bilan bog'lash</h3></div>
+        <div class="mb-panel-body">
+          <p class="mb-hint" style="margin-top:0;">@UstaHisobBot orqali ham QR mahsulot yaratishingiz mumkin. Bog'lash uchun kod oling va botga <code>/login KOD</code> deb yuboring.</p>
+          <div class="mb-form-actions">
+            <button class="mb-btn ghost" id="gen-link-code-btn">Bog'lash kodini olish</button>
+          </div>
+          <div id="link-code-result" style="margin-top:10px;"></div>
+          <div id="link-status" class="mb-hint"></div>
+        </div>
+      </div>
+
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>Barcha QR mahsulotlar</h3></div>
+        <div class="mb-panel-body">
+          <div id="qr-items-grid" class="mb-cards"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORT -->
+    <div class="mb-section" id="tab-report">
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>Buyurtmalar bo'yicha foyda</h3></div>
+        <div class="mb-panel-body">
+          <p class="mb-hint">Har bir buyurtmaga bog'langan xarajatlar shu buyurtma summasidan ayrilib, taxminiy foyda hisoblanadi. "Umumiy" xarajatlar (buyurtmaga bog'lanmagan) bu jadvalga kirmaydi — ular pastdagi umumiy hisobotda ko'rinadi.</p>
+          <div class="mb-table-wrap">
+            <table class="mb-table" id="profit-table"></table>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>Xodimlar xarajatlari</h3></div>
+        <div class="mb-panel-body">
+          <p class="mb-hint">Oylik xodimlar uchun belgilangan maosh va shu oy to'langan summa; foizchi ustalar uchun ular bog'langan buyurtmalar foydasidan hisoblangan ulush va hozirgacha to'langan summa ko'rsatiladi.</p>
+          <div class="mb-table-wrap">
+            <table class="mb-table" id="worker-cost-table"></table>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>Umumiy hisobot</h3></div>
+        <div class="mb-panel-body">
+          <div class="mb-table-wrap">
+            <table class="mb-table" id="summary-table"></table>
+          </div>
+          <div class="mb-form-actions">
+            <button class="mb-btn" id="export-btn">⬇ Excelga eksport qilish (.xlsx)</button>
+          </div>
+          <p class="mb-hint" id="save-status">Ma'lumotlar avtomatik saqlanadi.</p>
+        </div>
+      </div>
+
+      <div class="mb-panel">
+        <div class="mb-panel-head"><h3>Ma'lumotlarni tozalash</h3></div>
+        <div class="mb-panel-body">
+          <p class="mb-hint">Har bir turdagi ma'lumotni alohida yoki hammasini birdan o'chirishingiz mumkin. Bu amalni ortga qaytarib bo'lmaydi.</p>
+          <div class="mb-danger-zone">
+            <h4>Alohida o'chirish</h4>
+            <div class="mb-danger-row">
+              <div class="lbl">Barcha buyurtmalar <span class="cnt" id="cnt-orders"></span></div>
+              <button class="mb-btn danger small" id="clear-orders-btn">Buyurtmalarni o'chirish</button>
+            </div>
+            <div class="mb-danger-row">
+              <div class="lbl">Barcha xarajatlar <span class="cnt" id="cnt-expenses"></span></div>
+              <button class="mb-btn danger small" id="clear-expenses-btn">Xarajatlarni o'chirish</button>
+            </div>
+            <div class="mb-danger-row">
+              <div class="lbl">Xodimlar va ularning to'lovlari <span class="cnt" id="cnt-workers"></span></div>
+              <button class="mb-btn danger small" id="clear-workers-btn">Xodimlarni o'chirish</button>
+            </div>
+          </div>
+          <div class="mb-form-actions" style="margin-top:14px;">
+            <button class="mb-btn ghost" id="reset-btn">Barchasini birdan tozalash</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="mb-modal-overlay hidden" id="modal-overlay">
+    <div class="mb-modal">
+      <div class="mb-modal-head"><h4 id="modal-title">Sarlavha</h4></div>
+      <div class="mb-modal-body" id="modal-body"></div>
+      <div class="mb-modal-actions" id="modal-actions"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// SaaS auth + storage bridge
+// Replaces the Claude-artifact window.storage with calls to our
+// own backend API, guarded by login + active subscription.
+// ============================================================
+(function(){
+  const token = localStorage.getItem('emb_token');
+  if (!token) {
+    window.location.href = '/login.html';
+    throw new Error('redirecting to login');
+  }
+
+  const PLAN_LABELS = { monthly: 'Oylik', yearly: 'Yillik', trial: 'Sinov muddati' };
+  const STATUS_LABELS = {
+    active: 'Faol', trial: 'Sinov muddati', expired: 'Muddati tugagan',
+    pending_payment: "To'lov kutilmoqda", canceled: 'Bekor qilingan',
+  };
+
+  function authHeaders(extra){
+    return Object.assign({ 'Authorization': 'Bearer ' + token }, extra || {});
+  }
+  window.authHeaders = authHeaders;
+  window.EMB_TOKEN = token;
+
+  function logout(){
+    localStorage.removeItem('emb_token');
+    localStorage.removeItem('emb_company');
+    window.location.href = '/login.html';
+  }
+  document.getElementById('acc-logout').addEventListener('click', logout);
+  window.CURRENT_COMPANY_NAME = localStorage.getItem('emb_company') || '';
+  document.getElementById('acc-company').textContent = window.CURRENT_COMPANY_NAME;
+
+  function showPaywall(sub){
+    const overlay = document.getElementById('paywall-overlay');
+    const statusEl = document.getElementById('paywall-status');
+    overlay.classList.remove('hidden');
+    if (sub && sub.status === 'pending_payment') {
+      statusEl.textContent = "To'lovingiz tekshirilmoqda. Tasdiqlangach sahifani yangilang.";
+    } else {
+      statusEl.textContent = '';
+    }
+  }
+  function hidePaywall(){
+    document.getElementById('paywall-overlay').classList.add('hidden');
+  }
+
+  async function loadPlansIntoPaywall(){
+    try{
+      const res = await fetch('/api/subscription/plans');
+      const data = await res.json();
+      const box = document.getElementById('paywall-plans');
+      box.innerHTML = Object.entries(data.plans).map(([key, p]) => `
+        <div class="mb-plan-card">
+          <div class="name">${p.label}</div>
+          <div class="price">${p.amount.toLocaleString('uz-UZ')} so'm</div>
+          <button data-plan="${key}">Tanlash</button>
+        </div>
+      `).join('');
+      box.querySelectorAll('button[data-plan]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          btn.disabled = true; btn.textContent = 'Yuborilmoqda...';
+          try{
+            const r = await fetch('/api/subscription/request-payment', {
+              method:'POST',
+              headers: authHeaders({'Content-Type':'application/json'}),
+              body: JSON.stringify({ plan: btn.dataset.plan, note: 'App orqali so\'rov' }),
+            });
+            const d = await r.json();
+            document.getElementById('paywall-status').textContent = d.message || "So'rov yuborildi.";
+          }catch(e){
+            document.getElementById('paywall-status').textContent = 'Xatolik yuz berdi, qayta urinib ko\'ring.';
+          }
+        });
+      });
+    }catch(e){ /* ignore */ }
+  }
+
+  async function refreshAccountBar(){
+    try{
+      const res = await fetch('/api/auth/me', { headers: authHeaders() });
+      if (res.status === 401) { logout(); return; }
+      const data = await res.json();
+      window.CURRENT_COMPANY_NAME = data.companyName || '';
+      localStorage.setItem('emb_company', window.CURRENT_COMPANY_NAME);
+      document.getElementById('acc-company').textContent = data.companyName || '';
+      const badge = document.getElementById('acc-sub-badge');
+      if (data.subscription) {
+        const st = data.subscription.status;
+        badge.textContent = STATUS_LABELS[st] || st;
+        badge.className = 'mb-sub-badge ' + st;
+        if (st !== 'active') {
+          loadPlansIntoPaywall();
+          showPaywall(data.subscription);
+        } else {
+          hidePaywall();
+        }
+      }
+    }catch(e){ /* network hiccup — don't block UI */ }
+  }
+  refreshAccountBar();
+
+  // ---- window.storage shim: same interface the app already expects ----
+  window.storage = {
+    async get(key){
+      const res = await fetch('/api/storage/' + encodeURIComponent(key), { headers: authHeaders() });
+      if (res.status === 402) { const d = await res.json(); showPaywall(d); throw new Error(d.error); }
+      if (res.status === 401) { logout(); throw new Error('unauthorized'); }
+      if (!res.ok) { throw new Error('not found'); }
+      return res.json();
+    },
+    async set(key, value){
+      const res = await fetch('/api/storage/' + encodeURIComponent(key), {
+        method: 'POST',
+        headers: authHeaders({'Content-Type':'application/json'}),
+        body: JSON.stringify({ value }),
+      });
+      if (res.status === 402) { const d = await res.json(); showPaywall(d); throw new Error(d.error); }
+      if (res.status === 401) { logout(); throw new Error('unauthorized'); }
+      if (!res.ok) { throw new Error('save failed'); }
+      return res.json();
+    },
+    async delete(key){
+      // not used by the current app, kept for interface compatibility
+      return null;
+    },
+    async list(prefix){
+      const res = await fetch('/api/storage?prefix=' + encodeURIComponent(prefix||''), { headers: authHeaders() });
+      if (!res.ok) return { keys: [] };
+      return res.json();
+    },
+  };
+})();
+</script>
+
+<script>
+(function(){
+  let state = { orders: [], expenses: [], workers: [], workerPayments: [], orderPayments: [] };
+  let pendingDelete = null; // {type, id}
+  let periodMonth = 'all';
+  let periodYear = 'all';
+  let draftItems = [];
+  const expandedOrders = new Set();
+
+  const $ = (sel, root) => (root||document).querySelector(sel);
+  const $all = (sel, root) => Array.from((root||document).querySelectorAll(sel));
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function fmt(n){
+    n = Math.round(Number(n)||0);
+    const neg = n < 0; n = Math.abs(n);
+    const s = n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return (neg?'-':'') + s + " so'm";
+  }
+  function today(){ return new Date().toISOString().slice(0,10); }
+  function thisMonthKey(){ return new Date().toISOString().slice(0,7); }
+
+  // ---------- modal system (replaces prompt/confirm/alert, which don't work in sandboxed iframes) ----------
+  const modalOverlay = $('#modal-overlay');
+  const modalTitleEl = $('#modal-title');
+  const modalBodyEl = $('#modal-body');
+  const modalActionsEl = $('#modal-actions');
+
+  function closeModal(){
+    modalOverlay.classList.add('hidden');
+    modalBodyEl.innerHTML = '';
+    modalActionsEl.innerHTML = '';
+    const mm = modalOverlay.querySelector('.mb-modal');
+    if(mm) mm.style.maxWidth = '';
+  }
+  modalOverlay.addEventListener('click', (e)=>{ if(e.target===modalOverlay) closeModal(); });
+
+  function openFormModal({title, fields, submitLabel, onSubmit}){
+    modalTitleEl.textContent = title;
+    modalBodyEl.innerHTML = fields.map(f=>`
+      <div class="mb-field">
+        <label>${f.label}</label>
+        <input id="modal-f-${f.id}" type="${f.type||'text'}" placeholder="${f.placeholder||''}" value="${f.value!=null?f.value:''}">
+      </div>
+    `).join('');
+    modalActionsEl.innerHTML = `
+      <button class="mb-btn ghost" id="modal-cancel">Bekor qilish</button>
+      <button class="mb-btn" id="modal-submit">${submitLabel||'Saqlash'}</button>
+    `;
+    modalOverlay.classList.remove('hidden');
+    $('#modal-cancel').addEventListener('click', closeModal);
+    $('#modal-submit').addEventListener('click', ()=>{
+      const values = {};
+      for(const f of fields){ values[f.id] = $('#modal-f-'+f.id).value; }
+      onSubmit(values);
+    });
+    const firstInput = $('#modal-f-'+fields[0].id);
+    if(firstInput) setTimeout(()=>firstInput.focus(), 30);
+  }
+
+  function openConfirmModal({title, message, confirmLabel, danger, onConfirm}){
+    modalTitleEl.textContent = title || "Tasdiqlang";
+    modalBodyEl.innerHTML = `<div class="mb-modal-msg">${message}</div>`;
+    modalActionsEl.innerHTML = `
+      <button class="mb-btn ghost" id="modal-cancel">Bekor qilish</button>
+      <button class="mb-btn ${danger?'danger':''}" id="modal-confirm">${confirmLabel||'Tasdiqlash'}</button>
+    `;
+    modalOverlay.classList.remove('hidden');
+    $('#modal-cancel').addEventListener('click', closeModal);
+    $('#modal-confirm').addEventListener('click', ()=>{ onConfirm(); });
+  }
+
+  function openAlertModal(message){
+    modalTitleEl.textContent = "Diqqat";
+    modalBodyEl.innerHTML = `<div class="mb-modal-msg">${message}</div>`;
+    modalActionsEl.innerHTML = `<button class="mb-btn" id="modal-ok">Tushunarli</button>`;
+    modalOverlay.classList.remove('hidden');
+    $('#modal-ok').addEventListener('click', closeModal);
+  }
+
+  function dfmt(d){
+    if(!d) return '—';
+    const [y,m,day] = d.split('-');
+    return `${day}.${m}.${y}`;
+  }
+
+  // ---------- storage ----------
+  async function loadState(){
+    try{
+      const r = await window.storage.get('mb_orders', false);
+      state.orders = r && r.value ? JSON.parse(r.value) : [];
+    }catch(e){ state.orders = []; }
+    try{
+      const r = await window.storage.get('mb_expenses', false);
+      state.expenses = r && r.value ? JSON.parse(r.value) : [];
+    }catch(e){ state.expenses = []; }
+    try{
+      const r = await window.storage.get('mb_workers', false);
+      state.workers = r && r.value ? JSON.parse(r.value) : [];
+    }catch(e){ state.workers = []; }
+    try{
+      const r = await window.storage.get('mb_worker_payments', false);
+      state.workerPayments = r && r.value ? JSON.parse(r.value) : [];
+    }catch(e){ state.workerPayments = []; }
+    try{
+      const r = await window.storage.get('mb_order_payments', false);
+      state.orderPayments = r && r.value ? JSON.parse(r.value) : [];
+    }catch(e){ state.orderPayments = []; }
+
+    // ---- migration: assign order numbers + synth initial payment records for legacy data ----
+    let needsOrderSave = false;
+    let needsPaymentSave = false;
+    const sortedByDate = [...state.orders].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    let nextNum = 1;
+    sortedByDate.forEach(o=>{
+      if(!o.orderNumber){ o.orderNumber = nextNum; needsOrderSave = true; }
+      nextNum = Math.max(nextNum, o.orderNumber+1);
+    });
+    state.orders.forEach(o=>{
+      const hasPayments = state.orderPayments.some(p=>p.orderId===o.id);
+      if(!hasPayments && (Number(o.paid)||0) > 0){
+        state.orderPayments.push({ id:uid(), orderId:o.id, date:o.date||today(), amount:Number(o.paid)||0, note:"Boshlang'ich to'lov" });
+        needsPaymentSave = true;
+      }
+    });
+    // migrate flat product/total/date/status/workerId orders into items[] structure
+    state.orders.forEach(o=>{
+      if(!o.items){
+        o.items = [{
+          id: uid(),
+          name: o.product || 'Mahsulot',
+          price: Number(o.total)||0,
+          date: o.date || today(),
+          deliveryDate: o.deliveryDate || '',
+          status: o.status || 'jarayonda',
+          workerIds: o.workerId ? [o.workerId] : []
+        }];
+        needsOrderSave = true;
+      }
+    });
+    // migrate items that still use a single workerId (string) into workerIds (array)
+    state.orders.forEach(o=>{
+      orderItems(o).forEach(i=>{
+        if(!Array.isArray(i.workerIds)){
+          i.workerIds = i.workerId ? [i.workerId] : [];
+          delete i.workerId;
+          needsOrderSave = true;
+        }
+      });
+    });
+    if(needsOrderSave) await saveOrders();
+    if(needsPaymentSave) await saveOrderPayments();
+
+    populatePeriodYearOptions();
+    updatePeriodLabel();
+    renderAll();
+  }
+  async function saveOrders(){
+    const el = $('#save-status');
+    try{
+      await window.storage.set('mb_orders', JSON.stringify(state.orders), false);
+      if(el){ el.textContent = 'Saqlandi ✓'; setTimeout(()=>{ if(el) el.textContent = "Ma'lumotlar avtomatik saqlanadi."; }, 1500); }
+    }catch(e){ if(el) el.textContent = "Saqlashda xatolik yuz berdi, qayta urinib ko'ring."; }
+  }
+  async function saveExpenses(){
+    const el = $('#save-status');
+    try{
+      await window.storage.set('mb_expenses', JSON.stringify(state.expenses), false);
+      if(el){ el.textContent = 'Saqlandi ✓'; setTimeout(()=>{ if(el) el.textContent = "Ma'lumotlar avtomatik saqlanadi."; }, 1500); }
+    }catch(e){ if(el) el.textContent = "Saqlashda xatolik yuz berdi, qayta urinib ko'ring."; }
+  }
+  async function saveWorkers(){
+    const el = $('#save-status');
+    try{
+      await window.storage.set('mb_workers', JSON.stringify(state.workers), false);
+      if(el){ el.textContent = 'Saqlandi ✓'; setTimeout(()=>{ if(el) el.textContent = "Ma'lumotlar avtomatik saqlanadi."; }, 1500); }
+    }catch(e){ if(el) el.textContent = "Saqlashda xatolik yuz berdi, qayta urinib ko'ring."; }
+  }
+  async function saveWorkerPayments(){
+    const el = $('#save-status');
+    try{
+      await window.storage.set('mb_worker_payments', JSON.stringify(state.workerPayments), false);
+      if(el){ el.textContent = 'Saqlandi ✓'; setTimeout(()=>{ if(el) el.textContent = "Ma'lumotlar avtomatik saqlanadi."; }, 1500); }
+    }catch(e){ if(el) el.textContent = "Saqlashda xatolik yuz berdi, qayta urinib ko'ring."; }
+  }
+  async function saveOrderPayments(){
+    const el = $('#save-status');
+    try{
+      await window.storage.set('mb_order_payments', JSON.stringify(state.orderPayments), false);
+      if(el){ el.textContent = 'Saqlandi ✓'; setTimeout(()=>{ if(el) el.textContent = "Ma'lumotlar avtomatik saqlanadi."; }, 1500); }
+    }catch(e){ if(el) el.textContent = "Saqlashda xatolik yuz berdi, qayta urinib ko'ring."; }
+  }
+
+  // ---------- tabs ----------
+  $all('.mb-tab').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      $all('.mb-tab').forEach(b=>b.classList.remove('active'));
+      $all('.mb-section').forEach(s=>s.classList.remove('active'));
+      btn.classList.add('active');
+      $('#tab-'+btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ---------- period controls ----------
+  const periodMonthSel = $('#period-month');
+  const periodYearSel = $('#period-year');
+  const periodTodayBtn = $('#period-today');
+  if(periodMonthSel){
+    periodMonthSel.addEventListener('change', ()=>{
+      periodMonth = periodMonthSel.value;
+      periodTodayBtn.classList.remove('active');
+      updatePeriodLabel();
+      renderDashboard();
+    });
+  }
+  if(periodYearSel){
+    periodYearSel.addEventListener('change', ()=>{
+      periodYear = periodYearSel.value;
+      periodTodayBtn.classList.remove('active');
+      updatePeriodLabel();
+      renderDashboard();
+    });
+  }
+  if(periodTodayBtn){
+    periodTodayBtn.addEventListener('click', ()=>{
+      const now = new Date();
+      periodYear = String(now.getFullYear());
+      periodMonth = String(now.getMonth()+1).padStart(2,'0');
+      periodYearSel.value = periodYear;
+      periodMonthSel.value = periodMonth;
+      periodTodayBtn.classList.add('active');
+      updatePeriodLabel();
+      renderDashboard();
+    });
+  }
+
+  // ---------- period filter (dashboard month/year) ----------
+  function inPeriod(dateStr){
+    if(!dateStr) return false;
+    const y = dateStr.slice(0,4), m = dateStr.slice(5,7);
+    if(periodYear!=='all' && y!==periodYear) return false;
+    if(periodMonth!=='all' && m!==periodMonth) return false;
+    return true;
+  }
+
+  function allPeriodDates(){
+    const dates = [];
+    state.orders.forEach(o=>{
+      orderItems(o).forEach(i=>{ if(i.date) dates.push(i.date); });
+      if(o.date) dates.push(o.date);
+    });
+    state.orderPayments.forEach(p=>{ if(p.date) dates.push(p.date); });
+    state.expenses.forEach(e=>{ if(e.date) dates.push(e.date); });
+    state.workerPayments.forEach(p=>{ if(p.date) dates.push(p.date); });
+    return dates;
+  }
+
+  function populatePeriodYearOptions(){
+    const sel = $('#period-year');
+    if(!sel) return;
+    const years = new Set(allPeriodDates().map(d=>d.slice(0,4)));
+    years.add(String(new Date().getFullYear()));
+    const sorted = Array.from(years).sort((a,b)=>b.localeCompare(a));
+    const current = sel.value || 'all';
+    sel.innerHTML = `<option value="all">Barcha yillar</option>` + sorted.map(y=>`<option value="${y}">${y}</option>`).join('');
+    sel.value = sorted.includes(current) ? current : 'all';
+  }
+
+  const MONTH_NAMES_UZ = {'01':'Yanvar','02':'Fevral','03':'Mart','04':'Aprel','05':'May','06':'Iyun','07':'Iyul','08':'Avgust','09':'Sentyabr','10':'Oktyabr','11':'Noyabr','12':'Dekabr'};
+  function updatePeriodLabel(){
+    const lbl = $('#period-label');
+    if(!lbl) return;
+    if(periodYear==='all' && periodMonth==='all'){ lbl.textContent = 'Barcha vaqt'; }
+    else if(periodYear!=='all' && periodMonth==='all'){ lbl.textContent = periodYear + '-yil'; }
+    else if(periodYear==='all' && periodMonth!=='all'){ lbl.textContent = MONTH_NAMES_UZ[periodMonth] + ' (barcha yillar)'; }
+    else { lbl.textContent = MONTH_NAMES_UZ[periodMonth] + ' ' + periodYear; }
+  }
+
+  // ---------- order items helpers ----------
+  function orderItems(o){ return o.items || []; }
+  function orderTotal(o){ return orderItems(o).reduce((s,i)=>s+(Number(i.price)||0),0); }
+  function orderEarliestDate(o){
+    const items = orderItems(o);
+    if(items.length===0) return o.date || today();
+    return items.reduce((min,i)=> (i.date && (!min || i.date<min)) ? i.date : min, null) || (o.date||today());
+  }
+  function orderStatusSummary(o){
+    const items = orderItems(o);
+    if(items.length===0) return 'jarayonda';
+    const statuses = new Set(items.map(i=>i.status));
+    return statuses.size===1 ? [...statuses][0] : 'aralash';
+  }
+  function orderHasActiveItem(o){
+    return orderItems(o).some(i=>i.status==='jarayonda'||i.status==='tayyor');
+  }
+  function orderItemNames(o){
+    return orderItems(o).map(i=>i.name).join(', ');
+  }
+  function itemWorkerNames(item){
+    const names = (item.workerIds||[]).map(id=>{
+      const w = state.workers.find(x=>x.id===id);
+      return w ? w.name : null;
+    }).filter(Boolean);
+    return names.join(', ');
+  }
+
+  // ---------- derived calcs ----------
+  function computeTotals(dateFilter){
+    const income = state.orderPayments.filter(p=>dateFilter(p.date)).reduce((s,p)=> s + (Number(p.amount)||0), 0);
+    const expenseOther = state.expenses.filter(e=>dateFilter(e.date)).reduce((s,e)=> s + (Number(e.amount)||0), 0);
+    const workerPaid = state.workerPayments.filter(p=>dateFilter(p.date)).reduce((s,p)=> s + (Number(p.amount)||0), 0);
+    const expense = expenseOther + workerPaid;
+    const pending = state.orders
+      .filter(o=> orderStatusSummary(o)!=='bekor' && dateFilter(orderEarliestDate(o)))
+      .reduce((s,o)=> s + Math.max(orderTotal(o) - (Number(o.paid)||0), 0), 0);
+    const activeOrders = state.orders.filter(o=>orderHasActiveItem(o)).length;
+    return { income, expense, expenseOther, workerPaid, profit: income-expense, pending, activeOrders };
+  }
+  function totals(){ return computeTotals(inPeriod); }
+  function totalsAllTime(){ return computeTotals(()=>true); }
+
+  function expenseByCategory(){
+    const map = {};
+    state.expenses.filter(e=>inPeriod(e.date)).forEach(e=>{
+      map[e.category] = (map[e.category]||0) + (Number(e.amount)||0);
+    });
+    const workerPaid = state.workerPayments.filter(p=>inPeriod(p.date)).reduce((s,p)=> s + (Number(p.amount)||0), 0);
+    if(workerPaid>0){ map["Xodimlarga to'lovlar"] = (map["Xodimlarga to'lovlar"]||0) + workerPaid; }
+    return map;
+  }
+
+  function expensesForOrder(orderId){
+    return state.expenses.filter(e=>e.orderId===orderId).reduce((s,e)=>s+(Number(e.amount)||0),0);
+  }
+
+  function orderProfit(order){
+    return orderTotal(order) - expensesForOrder(order.id);
+  }
+
+  function workerAccrued(worker){
+    // percent-type workers accrue a % of the profit share of every non-cancelled item assigned to them
+    if(worker.type!=='foiz') return 0;
+    const pct = Number(worker.percent)||0;
+    let sum = 0;
+    state.orders.forEach(o=>{
+      const total = orderTotal(o);
+      const exp = expensesForOrder(o.id);
+      orderItems(o).forEach(i=>{
+        if((i.workerIds||[]).includes(worker.id) && i.status!=='bekor'){
+          const share = total>0 ? (Number(i.price)||0)/total : 0;
+          const itemProfit = (Number(i.price)||0) - exp*share;
+          sum += Math.max(itemProfit,0) * (pct/100);
+        }
+      });
+    });
+    return sum;
+  }
+
+  function workerPaidTotal(workerId){
+    return state.workerPayments.filter(p=>p.workerId===workerId).reduce((s,p)=>s+(Number(p.amount)||0),0);
+  }
+
+  // ---------- render ----------
+  function renderAll(){
+    renderDashboard();
+    renderOrders();
+    renderExpenses();
+    renderWorkers();
+    renderReport();
+    fillOrderSelect();
+    fillWorkerSelect();
+    renderDraftItems();
+  }
+
+  function renderDashboard(){
+    const t = totals();
+    const cards = $('#dash-cards');
+    cards.innerHTML = `
+      <div class="mb-card income">
+        <div class="lbl">Jami tushum</div>
+        <div class="val">${fmt(t.income)}</div>
+        <div class="sub">Buyurtmalar bo'yicha kelib tushgan pul</div>
+      </div>
+      <div class="mb-card expense">
+        <div class="lbl">Jami xarajat</div>
+        <div class="val">${fmt(t.expense)}</div>
+        <div class="sub">Shundan xodimlarga: ${fmt(t.workerPaid)}</div>
+      </div>
+      <div class="mb-card profit">
+        <div class="lbl">Sof foyda</div>
+        <div class="val">${fmt(t.profit)}</div>
+        <div class="sub">Tushum − xarajat</div>
+      </div>
+      <div class="mb-card">
+        <div class="lbl">Kutilayotgan to'lov</div>
+        <div class="val" style="color:var(--wood-dark)">${fmt(t.pending)}</div>
+        <div class="sub">${t.activeOrders} ta faol buyurtmada qoldiq</div>
+      </div>
+    `;
+
+    // recent activity (respects selected period)
+    const events = [];
+    state.orderPayments.filter(p=>inPeriod(p.date)).forEach(p=>{
+      const o = state.orders.find(x=>x.id===p.orderId);
+      events.push({date:p.date, type:'income', text:`Buyurtma #${o?o.orderNumber:'?'}: ${o?o.client:'—'} — ${o?orderItemNames(o):''}`, amount:p.amount});
+    });
+    state.expenses.filter(e=>inPeriod(e.date)).forEach(e=> events.push({date:e.date, type:'expense', text:`${e.category}: ${e.desc||''}`, amount:e.amount}));
+    state.workerPayments.filter(p=>inPeriod(p.date)).forEach(p=>{
+      const w = state.workers.find(x=>x.id===p.workerId);
+      const lbl = p.type==='avans'?'Avans':(p.type==='foiz'?"Foiz to'lovi":'Oylik');
+      events.push({date:p.date, type:'expense', text:`${lbl}: ${w?w.name:'—'}${p.note?' — '+p.note:''}`, amount:p.amount});
+    });
+    events.sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+    const recent = events.slice(0,8);
+    const rt = $('#recent-table');
+    if(recent.length===0){
+      rt.innerHTML = `<tr><td class="mb-empty"><div class="big">Bu davrda hali hech narsa yo'q</div>Buyurtma yoki xarajat qo'shing — shu yerda ko'rinadi.</td></tr>`;
+    } else {
+      rt.innerHTML = `<thead><tr><th>Sana</th><th>Tavsif</th><th style="text-align:right">Summa</th></tr></thead><tbody>` +
+        recent.map(ev=>`<tr><td>${dfmt(ev.date)}</td><td>${ev.text}</td><td class="mb-num ${ev.type}">${ev.type==='expense'?'-':'+'}${fmt(ev.amount)}</td></tr>`).join('') +
+        `</tbody>`;
+    }
+
+    // category bars
+    const cat = expenseByCategory();
+    const max = Math.max(1, ...Object.values(cat));
+    const catEl = $('#dash-categories');
+    const entries = Object.entries(cat).sort((a,b)=>b[1]-a[1]);
+    if(entries.length===0){
+      catEl.innerHTML = `<div class="mb-empty"><div class="big">Xarajat kiritilmagan</div>"Xarajatlar" bo'limidan qo'shing.</div>`;
+    } else {
+      catEl.innerHTML = entries.map(([name,amt])=>`
+        <div class="mb-bar-row">
+          <div class="top"><span class="name">${name}</span><span class="amt">${fmt(amt)}</span></div>
+          <div class="mb-bar-track"><div class="mb-bar-fill" style="width:${(amt/max*100).toFixed(1)}%"></div></div>
+        </div>
+      `).join('');
+    }
+  }
+
+  function statusLabel(s){
+    return {jarayonda:'Jarayonda', tayyor:'Tayyor', topshirilgan:'Topshirilgan', bekor:'Bekor qilingan', aralash:'Aralash'}[s] || s;
+  }
+
+  function renderOrders(){
+    const tbl = $('#orders-table');
+    if(state.orders.length===0){
+      tbl.innerHTML = `<tr><td class="mb-empty"><div class="big">Buyurtma yo'q</div>Yuqoridagi formadan birinchi buyurtmangizni qo'shing.</td></tr>`;
+      return;
+    }
+    const rows = [...state.orders].sort((a,b)=>(orderEarliestDate(b)||'').localeCompare(orderEarliestDate(a)||''));
+    let html = `<thead><tr>
+        <th>№</th><th>Sana</th><th>Mijoz</th><th>Xonalar</th><th style="text-align:right">Umumiy</th>
+        <th style="text-align:right">To'langan</th><th style="text-align:right">Qoldiq</th><th>Holat</th><th></th>
+      </tr></thead><tbody>`;
+
+    rows.forEach(o=>{
+      const items = orderItems(o);
+      const total = orderTotal(o);
+      const remaining = total - (Number(o.paid)||0);
+      const statusSum = orderStatusSummary(o);
+      const expanded = expandedOrders.has(o.id);
+      html += `<tr>
+          <td class="mb-num">${o.orderNumber?('#'+o.orderNumber):'—'}</td>
+          <td>${dfmt(orderEarliestDate(o))}</td>
+          <td>${o.client||'—'}</td>
+          <td><button class="mb-expand-btn" data-toggle="${o.id}">${items.length} ta ${expanded?'▲':'▼'}</button><div class="mb-item-row-detail">${orderItemNames(o)}</div></td>
+          <td class="mb-num">${fmt(total)}</td>
+          <td class="mb-num income">${fmt(o.paid)}</td>
+          <td class="mb-num ${remaining>0?'expense':''}">${fmt(remaining)}</td>
+          <td><span class="mb-badge ${statusSum==='aralash'?'tayyor':statusSum}">${statusLabel(statusSum)}</span></td>
+          <td class="mb-actions-cell">
+            <button class="mb-btn ghost small" data-pay="${o.id}">To'lov</button>
+            <button class="mb-btn ghost small" data-contract="${o.id}">Shartnoma</button>
+            <button class="mb-btn danger small" data-del-order="${o.id}">O'chirish</button>
+          </td>
+        </tr>`;
+
+      if(expanded){
+        html += `<tr class="mb-item-detail-row"><td colspan="9"><div class="inner">
+          <table class="mb-table">
+            <thead><tr><th>Bo'lim</th><th style="text-align:right">Narx</th><th>Sana</th><th>Topshirish</th><th>Usta(lar)</th><th>Holat</th><th></th></tr></thead>
+            <tbody>
+            ${items.map(i=>{
+              const wNames = itemWorkerNames(i);
+              return `<tr>
+                <td>${i.name}</td>
+                <td class="mb-num">${fmt(i.price)}</td>
+                <td>${dfmt(i.date)}</td>
+                <td>${i.deliveryDate?dfmt(i.deliveryDate):'<span style="color:var(--ink-soft)">—</span>'}</td>
+                <td>${wNames||'<span style="color:var(--ink-soft)">—</span>'}</td>
+                <td>
+                  <select class="mb-status-select ${i.status}" data-status-item="${o.id}|${i.id}">
+                    <option value="jarayonda" ${i.status==='jarayonda'?'selected':''}>Jarayonda</option>
+                    <option value="tayyor" ${i.status==='tayyor'?'selected':''}>Tayyor</option>
+                    <option value="topshirilgan" ${i.status==='topshirilgan'?'selected':''}>Topshirilgan</option>
+                    <option value="bekor" ${i.status==='bekor'?'selected':''}>Bekor qilingan</option>
+                  </select>
+                </td>
+                <td><button class="mb-btn danger small" data-del-item="${o.id}|${i.id}">O'chirish</button></td>
+              </tr>`;
+            }).join('')}
+            </tbody>
+          </table>
+        </div></td></tr>`;
+      }
+    });
+    html += `</tbody>`;
+    tbl.innerHTML = html;
+
+    $all('[data-del-order]', tbl).forEach(b=> b.addEventListener('click', ()=> deleteOrder(b.dataset.delOrder)));
+    $all('[data-pay]', tbl).forEach(b=> b.addEventListener('click', ()=> addPayment(b.dataset.pay)));
+    $all('[data-contract]', tbl).forEach(b=> b.addEventListener('click', ()=> openContractPreview(b.dataset.contract)));
+    $all('[data-toggle]', tbl).forEach(b=> b.addEventListener('click', ()=>{
+      const id = b.dataset.toggle;
+      if(expandedOrders.has(id)) expandedOrders.delete(id); else expandedOrders.add(id);
+      renderOrders();
+    }));
+    $all('[data-status-item]', tbl).forEach(sel=> sel.addEventListener('change', ()=>{
+      const [orderId, itemId] = sel.dataset.statusItem.split('|');
+      const order = state.orders.find(o=>o.id===orderId);
+      if(!order) return;
+      const item = orderItems(order).find(i=>i.id===itemId);
+      if(!item) return;
+      item.status = sel.value;
+      saveOrders();
+      renderDashboard();
+      renderReport();
+      renderOrders();
+    }));
+    $all('[data-del-item]', tbl).forEach(b=> b.addEventListener('click', ()=>{
+      const [orderId, itemId] = b.dataset.delItem.split('|');
+      const order = state.orders.find(o=>o.id===orderId);
+      if(!order) return;
+      if(orderItems(order).length<=1){
+        openAlertModal("Buyurtmada kamida bitta xona/bo'lim bo'lishi kerak. Butun buyurtmani o'chirish uchun asosiy jadvaldagi \"O'chirish\" tugmasidan foydalaning.");
+        return;
+      }
+      openConfirmModal({
+        title: "Xonani o'chirish",
+        message: `"${orderItems(order).find(i=>i.id===itemId)?.name||''}" bo'limini shu buyurtmadan o'chirmoqchimisiz?`,
+        confirmLabel: "O'chirish",
+        danger: true,
+        onConfirm: ()=>{
+          order.items = orderItems(order).filter(i=>i.id!==itemId);
+          saveOrders();
+          closeModal();
+          renderAll();
+        }
+      });
+    }));
+  }
+
+  function addPayment(id){
+    const order = state.orders.find(o=>o.id===id);
+    if(!order) return;
+    openFormModal({
+      title: `"${order.client||'Mijoz'}" uchun to'lov`,
+      fields: [
+        { id:'amt', label:"To'lov summasi (so'm)", type:'number', placeholder:'1000000' },
+        { id:'date', label:"Sana", type:'date', value: today() },
+      ],
+      submitLabel: "Qo'shish",
+      onSubmit: (v)=>{
+        const n = Number(v.amt);
+        if(isNaN(n) || n<=0){ openAlertModal("To'g'ri summa kiriting."); return; }
+        state.orderPayments.push({ id:uid(), orderId:id, date: v.date||today(), amount:n, note:'' });
+        order.paid = (Number(order.paid)||0) + n;
+        saveOrders();
+        saveOrderPayments();
+        closeModal();
+        renderAll();
+      }
+    });
+  }
+
+  function deleteOrder(id){
+    openConfirmModal({
+      title: "Buyurtmani o'chirish",
+      message: "Bu buyurtmani o'chirmoqchimisiz? Bog'liq xarajatlar o'chirilmaydi, lekin bog'lanish bekor bo'ladi.",
+      confirmLabel: "O'chirish",
+      danger: true,
+      onConfirm: ()=>{
+        state.orders = state.orders.filter(o=>o.id!==id);
+        state.expenses.forEach(e=>{ if(e.orderId===id) e.orderId=''; });
+        state.orderPayments = state.orderPayments.filter(p=>p.orderId!==id);
+        saveOrders(); saveExpenses(); saveOrderPayments();
+        closeModal();
+        renderAll();
+      }
+    });
+  }
+
+  // ---------- contract print ----------
+  function deliveryDatesSummary(items){
+    if(!items || items.length===0) return "Kelishuv asosida";
+    const withDates = items.filter(i=>i.deliveryDate);
+    if(withDates.length===0) return "Kelishuv asosida";
+    const uniqueDates = [...new Set(items.map(i=>i.deliveryDate||''))];
+    if(uniqueDates.length===1 && withDates.length===items.length){
+      return dfmt(uniqueDates[0]);
+    }
+    return items.map(i=> `${i.name}: ${i.deliveryDate ? dfmt(i.deliveryDate) : 'kelishuv asosida'}`).join('; ');
+  }
+
+  function contractHTML(order){
+    const items = orderItems(order);
+    const total = orderTotal(order);
+    const paid = Number(order.paid)||0;
+    const remaining = total - paid;
+    const avans70 = Math.round(total*0.7);
+    const companyName = (window.CURRENT_COMPANY_NAME || 'Kompaniya nomi').toUpperCase();
+    // pick representative responsible master(s) from the items, if any assigned
+    const allAssignedWorkerNames = [...new Set(items.flatMap(i=>(i.workerIds||[]).map(id=>{
+      const w = state.workers.find(x=>x.id===id); return w ? w.name : null;
+    }).filter(Boolean)))].join(', ');
+    return `<!DOCTYPE html>
+<html lang="uz"><head><meta charset="UTF-8">
+<title>Shartnoma №${order.orderNumber||''} — ${order.client||''}</title>
+<style>
+  @page{ size:A4; margin:16mm 14mm; }
+  *{ box-sizing:border-box; }
+  html,body{ height:auto; }
+  body{ font-family:'Times New Roman', Georgia, serif; color:#1c1712; margin:0; padding:0; background:#fff; }
+  .sheet{ max-width:800px; margin:0 auto; padding:18px 6px 60px; }
+  .band{ background:#C9A47C; padding:16px 20px; text-align:center; border-radius:4px; margin-bottom:18px; }
+  .band .co{ font-weight:bold; font-size:22px; letter-spacing:0.5px; color:#241b12; }
+  .band .tag{ font-size:11.5px; color:#4a3a26; margin-top:2px; }
+  h1{ text-align:center; font-size:19px; margin:0 0 4px; }
+  .meta{ text-align:center; font-size:12.5px; color:#4a3a26; margin-bottom:16px; }
+  .intro{ font-size:13px; line-height:1.6; margin-bottom:16px; text-align:justify; }
+  h2{ font-size:14px; background:#F2E9DE; padding:7px 10px; margin:18px 0 8px; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; margin-bottom:6px; }
+  td, th{ border:1px solid #B9A88F; padding:7px 10px; text-align:left; }
+  td.label{ background:#F8F3EA; font-weight:bold; width:34%; }
+  th{ background:#F8F3EA; }
+  .num{ text-align:right; }
+  .kqline{ font-size:12.5px; margin:4px 0 10px; }
+  p.term{ font-size:12.5px; line-height:1.6; margin:6px 0; text-align:justify; }
+  .sig{ display:flex; justify-content:space-between; margin-top:34px; gap:20px; }
+  .sig div{ width:47%; font-size:13px; line-height:1.9; }
+  .sig .line{ border-bottom:1px solid #1c1712; display:inline-block; min-width:160px; }
+  .confirm{ font-size:12px; line-height:1.6; margin-top:26px; font-style:italic; }
+  .confirm .sign-row{ font-style:normal; margin-top:8px; }
+</style>
+</head><body>
+  <div class="sheet">
+    <div class="band">
+      <div class="co">${companyName}</div>
+      <div class="tag">Professional ishlar va xizmatlar</div>
+    </div>
+    <h1>BUYURTMA UCHUN TIJORIY TAKLIF VA SHARTNOMA</h1>
+    <div class="meta">№ ${order.orderNumber||'—'} &nbsp;&nbsp;|&nbsp;&nbsp; ${dfmt(orderEarliestDate(order))}</div>
+
+    <p class="intro">Ushbu shartnoma bir tomondan "${companyName}" nomidan ish yurituvchi (bundan buyon matnda — "Bajaruvchi") va ikkinchi tomondan quyida imzo chekuvchi mijoz (bundan buyon matnda — "Buyurtmachi") o'rtasida quyidagilar to'g'risida tuzildi:</p>
+
+    <h2>1. BUYURTMACHI VA BUYURTMA MA'LUMOTLARI</h2>
+    <table>
+      <tr><td class="label">Buyurtmachi (F.I.Sh. / tashkilot)</td><td>${order.client||''}</td></tr>
+      <tr><td class="label">Manzil</td><td>${order.address||''}</td></tr>
+      <tr><td class="label">Telefon raqami</td><td>${order.phone||''}</td></tr>
+      <tr><td class="label">Bog'lanuvchi shaxs</td><td></td></tr>
+      <tr><td class="label">Javobgar usta(lar)</td><td>${allAssignedWorkerNames}</td></tr>
+      <tr><td class="label">3D dizayner</td><td></td></tr>
+    </table>
+
+    <h2>2. BAJARILADIGAN ISHLAR / MAHSULOTLAR RO'YXATI VA NARXI</h2>
+    <table>
+      <thead><tr><th>№</th><th>Ish / mahsulot nomi</th><th>Mas'ul usta(lar)</th><th>Sana</th><th>Topshirish</th><th class="num">Narx</th></tr></thead>
+      <tbody>
+      ${items.map((i,idx)=>{
+        const wNames = itemWorkerNames(i);
+        return `<tr><td>${idx+1}</td><td>${i.name}</td><td>${wNames||'—'}</td><td>${dfmt(i.date)}</td><td>${i.deliveryDate?dfmt(i.deliveryDate):'—'}</td><td class="num">${fmt(i.price)}</td></tr>`;
+      }).join('')}
+      <tr><td colspan="5" class="label" style="text-align:right;">Jami summa:</td><td class="num"><b>${fmt(total)}</b></td></tr>
+      </tbody>
+    </table>
+    <div class="kqline">Avans (70%): <b>${fmt(avans70)}</b> &nbsp;&nbsp;|&nbsp;&nbsp; To'langan (shu kunga): <b>${fmt(paid)}</b> &nbsp;&nbsp;|&nbsp;&nbsp; Qoldiq: <b>${fmt(remaining)}</b></div>
+
+    <h2>3. BAJARISH MUDDATLARI VA KAFOLAT</h2>
+    <table>
+      <tr><td class="label">Ishlar boshlanish sanasi</td><td>3D model Buyurtmachi tomonidan tasdiqlangan kundan boshlanadi.</td></tr>
+      <tr><td class="label">Topshirish sanasi (tayyorlash muddati)</td><td>${deliveryDatesSummary(items)}</td></tr>
+      <tr><td class="label">Kafolat muddati</td><td>12 (o'n ikki) oy (mebel jihozni Buyurtmachi tomonidan o'zboshimchalik bilan ochib, ta'mirlashga harakat qilingan holatlar bundan mustasno)</td></tr>
+    </table>
+
+    <h2>4. TO'LOV TARTIBI VA TOMONLARNING MAJBURIYATLARI</h2>
+    <p class="term">4.1. Mebel jihozning 3D dizayni tayyor bo'lib, Buyurtmachi tomonidan tasdiqlangandan so'ng 3 (uch) kun ichida umumiy summadan 70% (avans) to'lanishi shart.</p>
+    <p class="term">4.2. Avans 70 foiz to'langandan so'ng buyurtma ishlab chiqarishga topshiriladi. Buyurtma tayyor bo'lgach, Bajaruvchi Buyurtmachini chaqirib, mebellarni ko'rsatadi. Buyurtmachi to'lovning qolgan qismini to'laydi, so'ngra mebellar manzilga olib borilib o'rnatiladi.</p>
+    <p class="term">4.3. Mahsulot topshirilgandan so'ng ikkala tomon dalolatnomaga (yoki ushbu shartnomaning tegishli bo'limiga) imzo qo'yadi.</p>
+    <p class="term">4.4. Ish jarayonida material yoki bozor narxlarida o'zgarish yuz bersa, mahsulot narxi tegishlicha o'zgarishi mumkin — bu haqda Buyurtmachiga oldindan xabar beriladi.</p>
+    <p class="term">4.5. Mebel o'rnatilishi jarayonida obyekt remonti sifati yoki devor/burchak nomutanosibligi ta'sir qilib, buni tuzatish uchun Bajaruvchi tomonidan qo'shimcha xizmat ko'rsatilsa, bu xizmat uchun Buyurtmachi tomonidan alohida to'lov amalga oshiriladi.</p>
+    <p class="term">4.6. Mebel tayyor bo'lgach, Buyurtmachi mahsulotni 3 (uch) kun ichida olib ketmasa, keyingi kundan boshlab har kuni 30 000 (o'ttiz ming) so'm miqdorida saqlov (ijara) haqi hisoblanadi.</p>
+
+    <h2>5. SHARTNOMANI BEKOR QILISH VA JARIMA SHARTLARI</h2>
+    <p class="term">5.1. Buyurtma qabul qilingandan so'ng Buyurtmachi buyurtmani bekor qilsa — buyurtma summasidan 20% jarima ushlab qolinadi.</p>
+    <p class="term">5.2. Agar mebel jihozning 3D dizayni yoki konstruksiyasi loyihalashtirilgan bo'lsa — buyurtma summasidan 25% jarima ushlab qolinadi.</p>
+    <p class="term">5.3. Agar buyurtmani tayyorlash uchun xom ashyo allaqachon kesilgan bo'lsa — kelishilgan buyurtma narxining 100% i Buyurtmachi tomonidan to'liq qoplanadi.</p>
+
+    <h2>6. YAKUNIY QOIDALAR</h2>
+    <p class="term">6.1. Buyurtmachi ushbu shartnoma va texnik topshiriqnomada ko'rsatilgan barcha ma'lumotlar bilan tanishib chiqqanini va ularga roziligini tasdiqlaydi.</p>
+    <p class="term">6.2. Ushbu shartnoma ikki nusxada, har ikki tomon uchun bir xil yuridik kuchga ega bo'lgan holda tuziladi.</p>
+
+    <div class="sig">
+      <div>
+        <b>"BAJARUVCHI":</b><br>
+        "${companyName}"<br>
+        Manzil: __________________________<br>
+        Tel: __________________________<br><br>
+        Imzo: <span class="line">&nbsp;</span>
+      </div>
+      <div>
+        <b>"BUYURTMACHI":</b><br>
+        F.I.Sh: ${order.client||''}<br>
+        Manzil: ${order.address||''}<br>
+        Tel: ${order.phone||''}<br><br>
+        Imzo: <span class="line">&nbsp;</span>
+      </div>
+    </div>
+
+    <div class="confirm">
+      * Mahsulot topshirilgandan so'ng — «Mahsulotni tekshirib oldim, ma'qul va meni to'liq qoniqtiradi» degan yozuv ostiga Buyurtmachi qayta imzo qo'yadi:
+      <div class="sign-row">Buyurtmachi: <span class="line">&nbsp;</span> &nbsp;&nbsp;&nbsp; Sana: <span class="line">&nbsp;</span></div>
+    </div>
+  </div>
+</body></html>`;
+  }
+
+  // Contract preview uses an inline iframe (srcdoc) instead of window.open(), because
+  // popup windows are blocked inside the sandboxed app environment.
+  function openContractPreview(orderId){
+    const order = state.orders.find(o=>o.id===orderId);
+    if(!order) return;
+    modalTitleEl.textContent = `Shartnoma №${order.orderNumber||''} — ${order.client||''}`;
+    modalBodyEl.innerHTML = `<div class="mb-contract-preview"><iframe id="contract-frame" style="width:100%;height:60vh;border:0;display:block;" title="Shartnoma"></iframe></div>`;
+    modalActionsEl.innerHTML = `
+      <button class="mb-btn ghost" id="modal-cancel">Yopish</button>
+      <button class="mb-btn" id="contract-print-btn">🖨️ Chop etish / PDF saqlash</button>
+    `;
+    const overlay = $('#modal-overlay');
+    overlay.classList.remove('hidden');
+    overlay.querySelector('.mb-modal').style.maxWidth = '760px';
+    $('#modal-cancel').addEventListener('click', closeModal);
+    const frame = $('#contract-frame');
+    frame.srcdoc = contractHTML(order);
+    $('#contract-print-btn').addEventListener('click', ()=>{
+      try{
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+      }catch(err){
+        openAlertModal("Chop etishda xatolik yuz berdi. Sahifani Ctrl+P orqali chop etishga urinib ko'ring.");
+      }
+    });
+  }
+
+  function renderExpenses(){
+    const tbl = $('#expenses-table');
+    if(state.expenses.length===0){
+      tbl.innerHTML = `<tr><td class="mb-empty"><div class="big">Xarajat yo'q</div>Yuqoridagi formadan birinchi xarajatingizni qo'shing.</td></tr>`;
+      return;
+    }
+    const rows = [...state.expenses].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    tbl.innerHTML = `<thead><tr>
+        <th>Sana</th><th>Turkum</th><th>Tavsif</th><th>Buyurtma</th><th style="text-align:right">Summa</th><th></th>
+      </tr></thead><tbody>` +
+      rows.map(e=>{
+        const ord = state.orders.find(o=>o.id===e.orderId);
+        return `<tr>
+          <td>${dfmt(e.date)}</td>
+          <td>${e.category}</td>
+          <td>${e.desc||'—'}</td>
+          <td>${ord ? (ord.client||'—') : '<span style="color:var(--ink-soft)">Umumiy</span>'}</td>
+          <td class="mb-num expense">-${fmt(e.amount)}</td>
+          <td><button class="mb-btn danger small" data-del-exp="${e.id}">O'chirish</button></td>
+        </tr>`;
+      }).join('') + `</tbody>`;
+    $all('[data-del-exp]', tbl).forEach(b=> b.addEventListener('click', ()=>{
+      openConfirmModal({
+        title: "Xarajatni o'chirish",
+        message: "Bu xarajatni o'chirmoqchimisiz?",
+        confirmLabel: "O'chirish",
+        danger: true,
+        onConfirm: ()=>{
+          state.expenses = state.expenses.filter(e=>e.id!==b.dataset.delExp);
+          saveExpenses();
+          closeModal();
+          renderAll();
+        }
+      });
+    }));
+  }
+
+  function workerPaidThisMonth(workerId){
+    const mk = thisMonthKey();
+    return state.workerPayments
+      .filter(p=> p.workerId===workerId && (p.date||'').slice(0,7)===mk)
+      .reduce((s,p)=> s + (Number(p.amount)||0), 0);
+  }
+
+  function renderWorkers(){
+    const tbl = $('#workers-table');
+    if(state.workers.length===0){
+      tbl.innerHTML = `<tr><td class="mb-empty"><div class="big">Xodim yo'q</div>Yuqoridagi formadan birinchi xodimingizni qo'shing.</td></tr>`;
+    } else {
+      tbl.innerHTML = `<thead><tr>
+          <th>Ism</th><th>Lavozim</th><th>Turi</th><th style="text-align:right">Stavka</th>
+          <th style="text-align:right">Hisoblangan / Bu oy</th><th style="text-align:right">To'langan</th>
+          <th style="text-align:right">Qoldiq</th><th></th>
+        </tr></thead><tbody>` +
+        state.workers.map(w=>{
+          const isPercent = w.type==='foiz';
+          let rateLabel, earnedLabel, paidLabel, remaining;
+          if(isPercent){
+            const accrued = workerAccrued(w);
+            const paidAll = workerPaidTotal(w.id);
+            rateLabel = (Number(w.percent)||0) + '%';
+            earnedLabel = fmt(accrued);
+            paidLabel = fmt(paidAll);
+            remaining = accrued - paidAll;
+          } else {
+            const paidMonth = workerPaidThisMonth(w.id);
+            rateLabel = fmt(w.salary);
+            earnedLabel = fmt(w.salary);
+            paidLabel = fmt(paidMonth);
+            remaining = (Number(w.salary)||0) - paidMonth;
+          }
+          return `<tr>
+            <td>${w.name||'—'}</td>
+            <td>${w.position||'—'}</td>
+            <td><span class="mb-badge ${isPercent?'tayyor':'topshirilgan'}">${isPercent?'Foiz':'Oylik'}</span></td>
+            <td class="mb-num">${rateLabel}</td>
+            <td class="mb-num">${earnedLabel}</td>
+            <td class="mb-num expense">${paidLabel}</td>
+            <td class="mb-num ${remaining>0?'':'income'}">${fmt(remaining)}</td>
+            <td class="mb-actions-cell">
+              <button class="mb-btn ghost small" data-avans="${w.id}">Avans</button>
+              <button class="mb-btn ghost small" data-oylik="${w.id}">${isPercent?'Foiz':'Oylik'}</button>
+              <button class="mb-btn danger small" data-del-worker="${w.id}">O'chirish</button>
+            </td>
+          </tr>`;
+        }).join('') + `</tbody>`;
+      $all('[data-avans]', tbl).forEach(b=> b.addEventListener('click', ()=> addWorkerPayment(b.dataset.avans, 'avans')));
+      $all('[data-oylik]', tbl).forEach(b=> b.addEventListener('click', ()=>{
+        const w = state.workers.find(x=>x.id===b.dataset.oylik);
+        addWorkerPayment(b.dataset.oylik, w && w.type==='foiz' ? 'foiz' : 'oylik');
+      }));
+      $all('[data-del-worker]', tbl).forEach(b=> b.addEventListener('click', ()=> deleteWorker(b.dataset.delWorker)));
+    }
+
+    const pt = $('#worker-payments-table');
+    if(state.workerPayments.length===0){
+      pt.innerHTML = `<tr><td class="mb-empty">Hali to'lov qilinmagan.</td></tr>`;
+    } else {
+      const rows = [...state.workerPayments].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      const typeLabel = t => t==='avans' ? 'Avans' : (t==='foiz' ? "% to'lov" : 'Oylik');
+      pt.innerHTML = `<thead><tr><th>Sana</th><th>Xodim</th><th>Turi</th><th>Izoh</th><th style="text-align:right">Summa</th><th></th></tr></thead><tbody>` +
+        rows.map(p=>{
+          const w = state.workers.find(x=>x.id===p.workerId);
+          return `<tr>
+            <td>${dfmt(p.date)}</td>
+            <td>${w?w.name:'—'}</td>
+            <td>${typeLabel(p.type)}</td>
+            <td>${p.note||'—'}</td>
+            <td class="mb-num expense">-${fmt(p.amount)}</td>
+            <td><button class="mb-btn danger small" data-del-payment="${p.id}">O'chirish</button></td>
+          </tr>`;
+        }).join('') + `</tbody>`;
+      $all('[data-del-payment]', pt).forEach(b=> b.addEventListener('click', ()=>{
+        openConfirmModal({
+          title: "To'lovni o'chirish",
+          message: "Bu to'lovni o'chirmoqchimisiz?",
+          confirmLabel: "O'chirish",
+          danger: true,
+          onConfirm: ()=>{
+            state.workerPayments = state.workerPayments.filter(p=>p.id!==b.dataset.delPayment);
+            saveWorkerPayments();
+            closeModal();
+            renderAll();
+          }
+        });
+      }));
+    }
+  }
+
+  function addWorkerPayment(workerId, type){
+    const w = state.workers.find(x=>x.id===workerId);
+    if(!w) return;
+    const labels = { avans:'Avans', oylik:'Oylik', foiz:"Foiz to'lovi" };
+    openFormModal({
+      title: `"${w.name}" — ${labels[type]}`,
+      fields: [
+        { id:'amt', label: `${labels[type]} summasi (so'm)`, type:'number', placeholder:'1000000' },
+        { id:'note', label: 'Izoh (ixtiyoriy)', type:'text', placeholder:'' },
+      ],
+      submitLabel: "Qo'shish",
+      onSubmit: (v)=>{
+        const n = Number(v.amt);
+        if(isNaN(n) || n<=0){ openAlertModal("To'g'ri summa kiriting."); return; }
+        state.workerPayments.push({ id:uid(), workerId, date: today(), type, amount:n, note: v.note||'' });
+        saveWorkerPayments();
+        closeModal();
+        renderAll();
+      }
+    });
+  }
+
+  function deleteWorker(id){
+    openConfirmModal({
+      title: "Xodimni o'chirish",
+      message: "Bu xodimni o'chirmoqchimisiz? To'lovlar tarixi saqlanib qoladi.",
+      confirmLabel: "O'chirish",
+      danger: true,
+      onConfirm: ()=>{
+        state.workers = state.workers.filter(w=>w.id!==id);
+        state.orders.forEach(o=> orderItems(o).forEach(i=>{ i.workerIds = (i.workerIds||[]).filter(wid=>wid!==id); }));
+        saveWorkers(); saveOrders();
+        closeModal();
+        renderAll();
+      }
+    });
+  }
+
+  function fillOrderSelect(){
+    const sel = $('#e-order');
+    const current = sel.value;
+    sel.innerHTML = `<option value="">Umumiy (buyurtmaga bog'liq emas)</option>` +
+      state.orders.map(o=>`<option value="${o.id}">#${o.orderNumber||''} ${o.client||'Nomsiz'} — ${orderItemNames(o)}</option>`).join('');
+    sel.value = current;
+  }
+
+  function fillWorkerSelect(){
+    const sel = $('#i-worker');
+    if(!sel) return;
+    const previouslySelected = Array.from(sel.selectedOptions||[]).map(o=>o.value);
+    sel.innerHTML = state.workers.map(w=>
+      `<option value="${w.id}">${w.name}${w.type==='foiz'?' ('+(w.percent||0)+'%)':''}</option>`
+    ).join('');
+    Array.from(sel.options).forEach(o=>{ if(previouslySelected.includes(o.value)) o.selected = true; });
+  }
+
+  function renderReport(){
+    // profit per order
+    const pt = $('#profit-table');
+    if(state.orders.length===0){
+      pt.innerHTML = `<tr><td class="mb-empty">Buyurtma qo'shilgach bu yerda har biri bo'yicha foyda ko'rinadi.</td></tr>`;
+    } else {
+      pt.innerHTML = `<thead><tr>
+          <th>№</th><th>Mijoz</th><th>Xonalar</th><th style="text-align:right">Umumiy narx</th>
+          <th style="text-align:right">Bog'liq xarajat</th><th style="text-align:right">Taxminiy foyda</th><th>Holat</th>
+        </tr></thead><tbody>` +
+        state.orders.map(o=>{
+          const exp = expensesForOrder(o.id);
+          const total = orderTotal(o);
+          const profit = total - exp;
+          const statusSum = orderStatusSummary(o);
+          return `<tr>
+            <td class="mb-num">${o.orderNumber?('#'+o.orderNumber):'—'}</td>
+            <td>${o.client||'—'}</td>
+            <td>${orderItemNames(o)||'—'}</td>
+            <td class="mb-num">${fmt(total)}</td>
+            <td class="mb-num expense">${fmt(exp)}</td>
+            <td class="mb-num ${profit>=0?'income':'expense'}">${fmt(profit)}</td>
+            <td><span class="mb-badge ${statusSum==='aralash'?'tayyor':statusSum}">${statusLabel(statusSum)}</span></td>
+          </tr>`;
+        }).join('') + `</tbody>`;
+    }
+
+    // worker costs breakdown
+    const wct = $('#worker-cost-table');
+    if(state.workers.length===0){
+      wct.innerHTML = `<tr><td class="mb-empty">Hali xodim qo'shilmagan.</td></tr>`;
+    } else {
+      wct.innerHTML = `<thead><tr>
+          <th>Ism</th><th>Turi</th><th style="text-align:right">Stavka</th>
+          <th style="text-align:right">Hisoblangan / Belgilangan</th>
+          <th style="text-align:right">To'langan (jami)</th><th style="text-align:right">Qoldiq</th>
+        </tr></thead><tbody>` +
+        state.workers.map(w=>{
+          const isPercent = w.type==='foiz';
+          const earned = isPercent ? workerAccrued(w) : (Number(w.salary)||0);
+          const paid = isPercent ? workerPaidTotal(w.id) : workerPaidThisMonth(w.id);
+          const remaining = earned - paid;
+          return `<tr>
+            <td>${w.name||'—'}</td>
+            <td><span class="mb-badge ${isPercent?'tayyor':'topshirilgan'}">${isPercent?'Foiz':'Oylik'}</span></td>
+            <td class="mb-num">${isPercent ? ((w.percent||0)+'%') : fmt(w.salary)}</td>
+            <td class="mb-num">${fmt(earned)}</td>
+            <td class="mb-num expense">${fmt(paid)}</td>
+            <td class="mb-num ${remaining>0?'':'income'}">${fmt(remaining)}</td>
+          </tr>`;
+        }).join('') +
+        `<tr class="mb-total-row"><td colspan="4">Jami xodimlarga to'langan</td><td class="mb-num expense">${fmt(state.workerPayments.reduce((s,p)=>s+(Number(p.amount)||0),0))}</td><td></td></tr>` +
+        `</tbody>`;
+    }
+
+    // summary
+    const t = totalsAllTime();
+    const st = $('#summary-table');
+    st.innerHTML = `<tbody>
+      <tr><td>Jami buyurtmalar soni</td><td class="mb-num">${state.orders.length}</td></tr>
+      <tr><td>Faol buyurtmalar</td><td class="mb-num">${t.activeOrders}</td></tr>
+      <tr><td>Jami tushum (kelib tushgan pul, barcha vaqt)</td><td class="mb-num income">${fmt(t.income)}</td></tr>
+      <tr><td>Kutilayotgan (qoldiq) to'lovlar</td><td class="mb-num">${fmt(t.pending)}</td></tr>
+      <tr><td>Boshqa xarajatlar</td><td class="mb-num expense">${fmt(t.expenseOther)}</td></tr>
+      <tr><td>Xodimlarga to'langan (avans+oylik)</td><td class="mb-num expense">${fmt(t.workerPaid)}</td></tr>
+      <tr><td>Jami xarajat</td><td class="mb-num expense">${fmt(t.expense)}</td></tr>
+      <tr class="mb-total-row"><td>Sof foyda (naqd holat)</td><td class="mb-num">${fmt(t.profit)}</td></tr>
+    </tbody>`;
+
+    // danger-zone counts
+    const cntO = $('#cnt-orders'); if(cntO) cntO.textContent = `(${state.orders.length} ta)`;
+    const cntE = $('#cnt-expenses'); if(cntE) cntE.textContent = `(${state.expenses.length} ta)`;
+    const cntW = $('#cnt-workers'); if(cntW) cntW.textContent = `(${state.workers.length} ta)`;
+  }
+
+  // ---------- add handlers ----------
+  // ---------- item builder (rooms within a new order) ----------
+  const iNamePreset = $('#i-name-preset');
+  const iNameCustomField = $('#i-name-custom-field');
+  if(iNamePreset){
+    iNamePreset.addEventListener('change', ()=>{
+      iNameCustomField.style.display = iNamePreset.value==='__custom' ? '' : 'none';
+    });
+  }
+
+  function currentItemName(){
+    if(iNamePreset.value==='__custom') return $('#i-name-custom').value.trim();
+    return iNamePreset.value;
+  }
+
+  function renderDraftItems(){
+    const tbl = $('#draft-items-table');
+    if(draftItems.length===0){
+      tbl.innerHTML = `<tr><td class="mb-empty">Hali ish/bo'lim qo'shilmagan. Yuqoridan birinchisini ro'yxatga qo'shing.</td></tr>`;
+    } else {
+      const totalSum = draftItems.reduce((s,i)=>s+(Number(i.price)||0),0);
+      tbl.innerHTML = `<thead><tr>
+          <th>Bo'lim</th><th style="text-align:right">Narx</th><th>Sana</th><th>Topshirish</th><th>Holat</th><th>Usta(lar)</th><th></th>
+        </tr></thead><tbody>` +
+        draftItems.map(i=>{
+          const wNames = itemWorkerNames(i);
+          return `<tr>
+            <td>${i.name}</td>
+            <td class="mb-num">${fmt(i.price)}</td>
+            <td>${i.date?dfmt(i.date):'—'}</td>
+            <td>${i.deliveryDate?dfmt(i.deliveryDate):'—'}</td>
+            <td><span class="mb-badge ${i.status}">${statusLabel(i.status)}</span></td>
+            <td>${wNames||'—'}</td>
+            <td><button class="mb-btn danger small" data-del-draft="${i.id}">O'chirish</button></td>
+          </tr>`;
+        }).join('') +
+        `<tr class="mb-total-row"><td>Jami</td><td class="mb-num">${fmt(totalSum)}</td><td colspan="5"></td></tr>` +
+        `</tbody>`;
+      $all('[data-del-draft]', tbl).forEach(b=> b.addEventListener('click', ()=>{
+        draftItems = draftItems.filter(i=>i.id!==b.dataset.delDraft);
+        renderDraftItems();
+        $('#o-total').value = draftItems.reduce((s,i)=>s+(Number(i.price)||0),0) || '';
+      }));
+    }
+  }
+
+  $('#add-item-btn').addEventListener('click', ()=>{
+    const name = currentItemName();
+    const price = Number($('#i-price').value)||0;
+    const date = $('#i-date').value || today();
+    const deliveryDate = $('#i-delivery').value || '';
+    const status = $('#i-status').value;
+    const workerIds = Array.from($('#i-worker').selectedOptions).map(o=>o.value);
+    if(!name){ openAlertModal("Bo'lim nomini tanlang yoki kiriting."); return; }
+    if(price<=0){ openAlertModal("Narxni kiriting."); return; }
+    draftItems.push({ id:uid(), name, price, date, deliveryDate, status, workerIds });
+    renderDraftItems();
+    $('#o-total').value = draftItems.reduce((s,i)=>s+(Number(i.price)||0),0) || '';
+    // reset only name/price/worker — keep date/delivery/status for convenience when adding several items
+    $('#i-name-preset').value = 'Oshxona';
+    iNameCustomField.style.display = 'none';
+    $('#i-name-custom').value = '';
+    $('#i-price').value = '';
+    Array.from($('#i-worker').options).forEach(o=> o.selected = false);
+  });
+
+  $('#add-order-btn').addEventListener('click', ()=>{
+    const client = $('#o-client').value.trim();
+    const phone = $('#o-phone').value.trim();
+    const address = $('#o-address').value.trim();
+    const paid = Number($('#o-paid').value)||0;
+    if(!client){ openAlertModal("Mijoz ismini kiriting."); return; }
+    if(draftItems.length===0){ openAlertModal("Kamida bitta xona/bo'lim qo'shing."); return; }
+    const orderNumber = state.orders.reduce((max,o)=>Math.max(max, o.orderNumber||0), 0) + 1;
+    const id = uid();
+    const items = draftItems.map(i=>({...i}));
+    const earliestDate = items.reduce((min,i)=> (i.date && (!min||i.date<min)) ? i.date : min, null) || today();
+    state.orders.push({ id, orderNumber, client, phone, address, items, paid, date: earliestDate });
+    if(paid>0){
+      state.orderPayments.push({ id:uid(), orderId:id, date: earliestDate, amount:paid, note:"Boshlang'ich to'lov" });
+    }
+    saveOrders();
+    saveOrderPayments();
+    $('#o-client').value=''; $('#o-phone').value=''; $('#o-address').value=''; $('#o-total').value=''; $('#o-paid').value='';
+    draftItems = [];
+    renderDraftItems();
+    renderAll();
+    openAlertModal(`Buyurtma #${orderNumber} qo'shildi (${items.length} ta xona). Endi buyurtmalar jadvalidagi "Shartnoma" tugmasi orqali chop etishingiz mumkin.`);
+  });
+
+  $('#add-expense-btn').addEventListener('click', ()=>{
+    const date = $('#e-date').value || today();
+    const category = $('#e-category').value;
+    const desc = $('#e-desc').value.trim();
+    const amount = Number($('#e-amount').value)||0;
+    const orderId = $('#e-order').value;
+    if(amount<=0){ openAlertModal("Xarajat summasini kiriting."); return; }
+    state.expenses.push({ id:uid(), date, category, desc, amount, orderId });
+    saveExpenses();
+    $('#e-date').value=''; $('#e-desc').value=''; $('#e-amount').value=''; $('#e-order').value='';
+    renderAll();
+  });
+
+  const wTypeSel = $('#w-type');
+  if(wTypeSel){
+    wTypeSel.addEventListener('change', ()=>{
+      const isPercent = wTypeSel.value==='foiz';
+      $('#w-salary-field').style.display = isPercent ? 'none' : '';
+      $('#w-percent-field').style.display = isPercent ? '' : 'none';
+    });
+  }
+
+  $('#add-worker-btn').addEventListener('click', ()=>{
+    const name = $('#w-name').value.trim();
+    const position = $('#w-position').value.trim();
+    const type = $('#w-type').value;
+    const salary = Number($('#w-salary').value)||0;
+    const percent = Number($('#w-percent').value)||0;
+    if(!name){ openAlertModal("Xodim ismini kiriting."); return; }
+    if(type==='foiz' && percent<=0){ openAlertModal("Foiz stavkasini kiriting."); return; }
+    if(type==='oylik' && salary<=0){ openAlertModal("Oylik maoshni kiriting."); return; }
+    state.workers.push({ id:uid(), name, position, type, salary, percent });
+    saveWorkers();
+    $('#w-name').value=''; $('#w-position').value=''; $('#w-salary').value=''; $('#w-percent').value=''; $('#w-type').value='oylik';
+    $('#w-salary-field').style.display=''; $('#w-percent-field').style.display='none';
+    renderAll();
+  });
+
+  // ---------- export ----------
+  function applyCurrencyFormat(ws, colIndexes, rowCount){
+    for(let r=1; r<=rowCount; r++){
+      colIndexes.forEach(c=>{
+        const addr = XLSX.utils.encode_cell({r, c});
+        if(ws[addr] && typeof ws[addr].v === 'number'){
+          ws[addr].z = '#,##0" so\'m"';
+        }
+      });
+    }
+  }
+
+  $('#export-btn').addEventListener('click', ()=>{
+    try{
+      const wb = XLSX.utils.book_new();
+      const t = totalsAllTime();
+
+      // ---- 1. Hisobot (summary) — first sheet, shown when file opens ----
+      const summarySheet = [
+        { "Ko'rsatkich": "Hisobot sanasi", 'Qiymat': dfmt(today()) },
+        { "Ko'rsatkich": '', 'Qiymat': '' },
+        { "Ko'rsatkich": 'Jami buyurtmalar soni', 'Qiymat': state.orders.length },
+        { "Ko'rsatkich": 'Faol buyurtmalar (jarayonda/tayyor)', 'Qiymat': t.activeOrders },
+        { "Ko'rsatkich": 'Jami tushum (barcha vaqt)', 'Qiymat': t.income },
+        { "Ko'rsatkich": "Kutilayotgan (qoldiq) to'lovlar", 'Qiymat': t.pending },
+        { "Ko'rsatkich": 'Boshqa xarajatlar', 'Qiymat': t.expenseOther },
+        { "Ko'rsatkich": "Xodimlarga to'langan (avans+oylik+foiz)", 'Qiymat': t.workerPaid },
+        { "Ko'rsatkich": 'Jami xarajat', 'Qiymat': t.expense },
+        { "Ko'rsatkich": 'SOF FOYDA', 'Qiymat': t.profit },
+      ];
+      const wsS = XLSX.utils.json_to_sheet(summarySheet, {skipHeader:false});
+      wsS['!cols'] = [{wch:38},{wch:20}];
+      applyCurrencyFormat(wsS, [1], summarySheet.length);
+      XLSX.utils.book_append_sheet(wb, wsS, 'Hisobot');
+
+      // ---- 2. Buyurtmalar ----
+      const ordersSorted = [...state.orders].sort((a,b)=>(a.orderNumber||0)-(b.orderNumber||0));
+      const ordersSheet = ordersSorted.map(o=>{
+        const total = orderTotal(o);
+        return {
+          '№': o.orderNumber||'', 'Sana': orderEarliestDate(o),
+          'Mijoz': o.client, 'Telefon': o.phone||'', 'Manzil': o.address||'',
+          'Xonalar soni': orderItems(o).length, 'Xonalar ro\'yxati': orderItemNames(o),
+          'Umumiy narx': total, "To'langan": o.paid, 'Qoldiq': total-(Number(o.paid)||0),
+          'Holat': statusLabel(orderStatusSummary(o))
+        };
+      });
+      const wsO = XLSX.utils.json_to_sheet(ordersSheet);
+      wsO['!cols'] = [{wch:5},{wch:11},{wch:20},{wch:15},{wch:22},{wch:11},{wch:30},{wch:14},{wch:14},{wch:14},{wch:14}];
+      applyCurrencyFormat(wsO, [7,8,9], ordersSheet.length);
+      XLSX.utils.book_append_sheet(wb, wsO, 'Buyurtmalar');
+
+      // ---- 2b. Buyurtma tarkibi (xonalar) ----
+      const itemsSheet = [];
+      ordersSorted.forEach(o=>{
+        orderItems(o).forEach(i=>{
+          const wNames = itemWorkerNames(i);
+          itemsSheet.push({
+            'Buyurtma №': o.orderNumber||'', 'Mijoz': o.client, "Bo'lim": i.name,
+            'Narx': i.price, 'Sana': i.date, 'Topshirish sanasi': i.deliveryDate||'',
+            "Mas'ul usta(lar)": wNames, 'Holat': statusLabel(i.status)
+          });
+        });
+      });
+      const wsI = XLSX.utils.json_to_sheet(itemsSheet);
+      wsI['!cols'] = [{wch:11},{wch:20},{wch:16},{wch:13},{wch:11},{wch:13},{wch:16},{wch:14}];
+      applyCurrencyFormat(wsI, [3], itemsSheet.length);
+      XLSX.utils.book_append_sheet(wb, wsI, 'Buyurtma tarkibi');
+
+      // ---- 3. Buyurtma to'lovlari ----
+      const orderPaySheet = [...state.orderPayments].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(p=>{
+        const o = state.orders.find(x=>x.id===p.orderId);
+        return { 'Sana': p.date, 'Buyurtma №': o?o.orderNumber:'', 'Mijoz': o?o.client:'—', 'Izoh': p.note||'', 'Summa': p.amount };
+      });
+      const wsOP = XLSX.utils.json_to_sheet(orderPaySheet);
+      wsOP['!cols'] = [{wch:12},{wch:11},{wch:20},{wch:22},{wch:14}];
+      applyCurrencyFormat(wsOP, [4], orderPaySheet.length);
+      XLSX.utils.book_append_sheet(wb, wsOP, "Buyurtma to'lovlari");
+
+      // ---- 4. Xarajatlar ----
+      const expSheet = [...state.expenses].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(e=>{
+        const ord = state.orders.find(o=>o.id===e.orderId);
+        return { 'Sana': e.date, 'Turkum': e.category, 'Tavsif': e.desc, 'Summa': e.amount, 'Buyurtma': ord? ('#'+ord.orderNumber+' — '+ord.client) : 'Umumiy' };
+      });
+      const wsE = XLSX.utils.json_to_sheet(expSheet);
+      wsE['!cols'] = [{wch:12},{wch:16},{wch:28},{wch:14},{wch:26}];
+      applyCurrencyFormat(wsE, [3], expSheet.length);
+      XLSX.utils.book_append_sheet(wb, wsE, 'Xarajatlar');
+
+      // ---- 5. Xodimlar ----
+      const workersSheet = state.workers.map(w=>{
+        const isPercent = w.type==='foiz';
+        return {
+          'Ism': w.name, 'Lavozim': w.position, 'Turi': isPercent?'Foiz':'Oylik',
+          'Stavka': isPercent ? ((w.percent||0)+'%') : w.salary,
+          'Hisoblangan / Oylik': isPercent ? workerAccrued(w) : w.salary,
+          "To'langan": isPercent ? workerPaidTotal(w.id) : workerPaidThisMonth(w.id),
+          'Qoldiq': isPercent ? (workerAccrued(w)-workerPaidTotal(w.id)) : ((Number(w.salary)||0) - workerPaidThisMonth(w.id))
+        };
+      });
+      const wsW = XLSX.utils.json_to_sheet(workersSheet);
+      wsW['!cols'] = [{wch:20},{wch:18},{wch:9},{wch:12},{wch:16},{wch:14},{wch:14}];
+      applyCurrencyFormat(wsW, [4,5,6], workersSheet.length);
+      XLSX.utils.book_append_sheet(wb, wsW, 'Xodimlar');
+
+      // ---- 6. Xodim to'lovlari ----
+      const workerPaySheet = [...state.workerPayments].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(p=>{
+        const w = state.workers.find(x=>x.id===p.workerId);
+        const typeLabel = p.type==='avans' ? 'Avans' : (p.type==='foiz' ? "% to'lov" : 'Oylik');
+        return { 'Sana': p.date, 'Xodim': w?w.name:'—', 'Turi': typeLabel, 'Izoh': p.note, 'Summa': p.amount };
+      });
+      const wsWP = XLSX.utils.json_to_sheet(workerPaySheet);
+      wsWP['!cols'] = [{wch:12},{wch:20},{wch:12},{wch:22},{wch:14}];
+      applyCurrencyFormat(wsWP, [4], workerPaySheet.length);
+      XLSX.utils.book_append_sheet(wb, wsWP, 'Xodim tolovlari');
+
+      XLSX.writeFile(wb, `EXCLUSIVE_MEBEL_hisobot_${today()}.xlsx`);
+    }catch(e){
+      openAlertModal("Eksport qilishda xatolik yuz berdi: " + e.message);
+    }
+  });
+
+  $('#reset-btn').addEventListener('click', ()=>{
+    openConfirmModal({
+      title: "Hammasini tozalash",
+      message: "DIQQAT: Barcha buyurtma, xarajat va xodim ma'lumotlari butunlay o'chiriladi. Davom etasizmi?",
+      confirmLabel: "Ha, tozalash",
+      danger: true,
+      onConfirm: async ()=>{
+        state.orders = []; state.expenses = []; state.workers = []; state.workerPayments = []; state.orderPayments = [];
+        await saveOrders(); await saveExpenses(); await saveWorkers(); await saveWorkerPayments(); await saveOrderPayments();
+        closeModal();
+        renderAll();
+      }
+    });
+  });
+
+  $('#clear-orders-btn').addEventListener('click', ()=>{
+    openConfirmModal({
+      title: "Buyurtmalarni tozalash",
+      message: `Barcha buyurtmalar (${state.orders.length} ta) va ularning to'lov tarixi o'chiriladi. Xarajatlar va xodimlar o'zgarmaydi. Davom etasizmi?`,
+      confirmLabel: "Ha, o'chirish",
+      danger: true,
+      onConfirm: async ()=>{
+        state.orders = []; state.orderPayments = [];
+        state.expenses.forEach(e=>{ e.orderId=''; });
+        await saveOrders(); await saveOrderPayments(); await saveExpenses();
+        closeModal();
+        renderAll();
+      }
+    });
+  });
+
+  $('#clear-expenses-btn').addEventListener('click', ()=>{
+    openConfirmModal({
+      title: "Xarajatlarni tozalash",
+      message: `Barcha xarajatlar (${state.expenses.length} ta) o'chiriladi. Buyurtmalar va xodimlar o'zgarmaydi. Davom etasizmi?`,
+      confirmLabel: "Ha, o'chirish",
+      danger: true,
+      onConfirm: async ()=>{
+        state.expenses = [];
+        await saveExpenses();
+        closeModal();
+        renderAll();
+      }
+    });
+  });
+
+  $('#clear-workers-btn').addEventListener('click', ()=>{
+    openConfirmModal({
+      title: "Xodimlarni tozalash",
+      message: `Barcha xodimlar (${state.workers.length} ta) va ularning to'lov tarixi o'chiriladi. Buyurtmalar va xarajatlar o'zgarmaydi. Davom etasizmi?`,
+      confirmLabel: "Ha, o'chirish",
+      danger: true,
+      onConfirm: async ()=>{
+        state.workers = []; state.workerPayments = [];
+        state.orders.forEach(o=> orderItems(o).forEach(i=>{ i.workerIds = []; }));
+        await saveWorkers(); await saveWorkerPayments(); await saveOrders();
+        closeModal();
+        renderAll();
+      }
+    });
+  });
+
+  // ============================================================
+  // QR mahsulotlar (mijoz uchun QR-orqali ochiladigan sahifa)
+  // ============================================================
+  async function fetchQrItems(){
+    try{
+      const res = await fetch('/api/qr-items', { headers: window.authHeaders() });
+      if(!res.ok) return [];
+      const d = await res.json();
+      return d.items || [];
+    }catch(e){ return []; }
+  }
+
+  async function renderQrItems(){
+    const grid = $('#qr-items-grid');
+    if(!grid) return;
+    grid.innerHTML = `<div class="mb-empty">Yuklanmoqda...</div>`;
+    const items = await fetchQrItems();
+    if(items.length===0){
+      grid.innerHTML = `<div class="mb-empty"><div class="big">QR mahsulot yo'q</div>Yuqoridagi formadan birinchisini yarating.</div>`;
+      return;
+    }
+    grid.innerHTML = items.map(it=>{
+      const photo = it.photos && it.photos[0]
+        ? `<img class="photo" src="${it.photos[0]}" alt="${it.name}">`
+        : `<div class="photo-empty">Rasm yo'q</div>`;
+      return `<div class="mb-qr-card">
+        ${photo}
+        <div class="body">
+          <div class="name">${it.name}</div>
+          <div class="code">${it.code}</div>
+          <div class="price">${fmt(it.price)}</div>
+          <div class="qr-row">
+            <img src="" data-qr-id="${it.id}" alt="QR">
+            <div class="qr-actions">
+              <button class="mb-btn ghost small" data-copy-link="${it.publicUrl}">Havolani nusxalash</button>
+              <button class="mb-btn ghost small" data-print-qr="${it.id}">Chop etish</button>
+              <button class="mb-btn danger small" data-del-qr="${it.id}">O'chirish</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // har bir karta uchun QR rasmni alohida so'rab olamiz (backendda generatsiya qilinadi)
+    for(const it of items){
+      try{
+        const res = await fetch(`/api/qr-items/${it.id}/qrcode`, { headers: window.authHeaders() });
+        if(res.ok){
+          const d = await res.json();
+          const img = grid.querySelector(`img[data-qr-id="${it.id}"]`);
+          if(img) img.src = d.qrDataUrl;
+        }
+      }catch(e){}
+    }
+
+    $all('[data-copy-link]', grid).forEach(b=> b.addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText(b.dataset.copyLink); b.textContent = 'Nusxalandi ✓'; setTimeout(()=>{ b.textContent='Havolani nusxalash'; }, 1500); }
+      catch(e){ openAlertModal('Nusxalab bo\'lmadi: ' + b.dataset.copyLink); }
+    }));
+    $all('[data-print-qr]', grid).forEach(b=> b.addEventListener('click', ()=>{
+      const img = grid.querySelector(`img[data-qr-id="${b.dataset.printQr}"]`);
+      if(!img || !img.src) return;
+      const w = window.open('', '_blank');
+      const printHtml = '<html><body style="text-align:center;margin-top:40px;"><img src="' + img.src + '" style="width:300px;">'
+        + '<' + 'script>window.print()<' + '/script></body></html>';
+      w.document.write(printHtml);
+    }));
+    $all('[data-del-qr]', grid).forEach(b=> b.addEventListener('click', ()=>{
+      openConfirmModal({
+        title: 'QR mahsulotni o\'chirish',
+        message: 'Bu mahsulotni o\'chirmoqchimisiz? QR-kod ishlamay qoladi.',
+        confirmLabel: "O'chirish",
+        danger: true,
+        onConfirm: async ()=>{
+          await fetch(`/api/qr-items/${b.dataset.delQr}`, { method:'DELETE', headers: window.authHeaders() });
+          closeModal();
+          renderQrItems();
+        }
+      });
+    }));
+  }
+
+  // qr tabga o'tilganda ro'yxatni yangilaymiz
+  const qrTabBtn = document.querySelector('.mb-tab[data-tab="qr"]');
+  if(qrTabBtn) qrTabBtn.addEventListener('click', renderQrItems);
+
+  const addQrBtn = $('#add-qr-btn');
+  if(addQrBtn){
+    addQrBtn.addEventListener('click', async ()=>{
+      const name = $('#q-name').value.trim();
+      const price = Number($('#q-price').value)||0;
+      const warrantyMonths = Number($('#q-warranty').value)||12;
+      const status = $('#q-status').value;
+      const materials = $('#q-materials').value.trim();
+      const fileInput = $('#q-photos');
+
+      if(!name){ openAlertModal("Mahsulot nomini kiriting."); return; }
+
+      addQrBtn.disabled = true;
+      addQrBtn.textContent = 'Yaratilmoqda...';
+      try{
+        let photos = [];
+        if(fileInput.files && fileInput.files.length){
+          const fd = new FormData();
+          Array.from(fileInput.files).forEach(f=> fd.append('photos', f));
+          const upRes = await fetch('/api/qr-items/upload', { method:'POST', headers: window.authHeaders(), body: fd });
+          if(upRes.ok){
+            const upData = await upRes.json();
+            photos = upData.photos || [];
+          }
+        }
+        const res = await fetch('/api/qr-items', {
+          method:'POST',
+          headers: window.authHeaders({'Content-Type':'application/json'}),
+          body: JSON.stringify({ name, price, warrantyMonths, status, materials, photos }),
+        });
+        if(!res.ok){
+          const d = await res.json().catch(()=>({}));
+          openAlertModal(d.error || "Xatolik yuz berdi.");
+          return;
+        }
+        $('#q-name').value=''; $('#q-price').value=''; $('#q-materials').value=''; fileInput.value='';
+        renderQrItems();
+        openAlertModal("QR mahsulot yaratildi! Ro'yxatdan QR-kodni chop etib olishingiz mumkin.");
+      }catch(e){
+        openAlertModal("Xatolik yuz berdi: " + e.message);
+      }finally{
+        addQrBtn.disabled = false;
+        addQrBtn.textContent = '+ QR mahsulot yaratish';
+      }
+    });
+  }
+
+  // ---- Telegram bog'lash ----
+  const genLinkBtn = $('#gen-link-code-btn');
+  if(genLinkBtn){
+    genLinkBtn.addEventListener('click', async ()=>{
+      try{
+        const res = await fetch('/api/telegram/link-code', { method:'POST', headers: window.authHeaders() });
+        const d = await res.json();
+        $('#link-code-result').innerHTML = `
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;background:var(--paper-deep);padding:12px 16px;border-radius:8px;display:inline-block;">/login ${d.code}</div>
+          <div class="mb-hint">Bu kodni @UstaHisobBot ga yuboring (10 daqiqa amal qiladi)</div>
+        `;
+      }catch(e){
+        openAlertModal("Xatolik yuz berdi.");
+      }
+    });
+  }
+  async function checkTelegramLinkStatus(){
+    const el = $('#link-status');
+    if(!el) return;
+    try{
+      const res = await fetch('/api/telegram/link-status', { headers: window.authHeaders() });
+      const d = await res.json();
+      el.textContent = d.linked ? "✅ Telegram bog'langan" : "Hali Telegram bog'lanmagan";
+    }catch(e){}
+  }
+  if(qrTabBtn) qrTabBtn.addEventListener('click', checkTelegramLinkStatus);
+
+  loadState();
+})();
+</script>
+</body>
+</html>
